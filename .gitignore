@@ -17,7 +17,6 @@
 *.c.[012]*.*
 *.dtb
 *.dtb.S
-*.dtbo
 *.dwo
 *.elf
 *.gcno
@@ -53,7 +52,6 @@ modules.builtin
 /TAGS
 /linux
 /vmlinux
-/SPESND.zip
 /vmlinux.32
 /vmlinux-gdb.py
 /vmlinuz
@@ -68,8 +66,8 @@ modules.builtin
 # Ignored Paths
 out/
 tc/
-AnyKernel3
-
+log.txt
+*.zip
 #
 # Debian directory (make deb-pkg)
 #
@@ -142,6 +140,3 @@ all.config
 
 # fetched Android config fragments
 kernel/configs/android-*.cfg
-
-# vendor device tree directories
-# arch/arm64/boot/dts/vendor/
