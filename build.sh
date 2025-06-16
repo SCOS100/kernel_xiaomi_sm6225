@@ -1,21 +1,12 @@
 #!/bin/sh
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> parent of 2725f1e9554e (aaaaaa)
-if [ "$1 " = "env " ]; then echo "Type 'exit' to quit environment."; ARCH=arm64 CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 debian_chroot="Redmi Note 11/NFC Kernel" bash; exit; fi
-
-=======
->>>>>>> parent of e71c15230078 (a)
-RELEASE=$(make -j$(nproc --all) kernelrelease)
-
+if [ "$1 " = "env " ]; then echo "Type 'exit' to quit environment."; ARCH=arm64 CC="distcc clang" LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 debian_chroot="Redmi Note 11/NFC Kernel" bash; exit; fi
 # Build the kernel.
 if [ ! -e .config ]; then
 	echo "Setting defconfig"
 	cp arch/arm64/configs/spesnd_defconfig .config
 fi
+RELEASE=$(make -j$(nproc --all) kernelrelease)
 if [ -d AnyKernel3 ]; then rm -r AnyKernel3; fi
 git clone https://github.com/CHRISL7/AnyKernel3 -b master
 cd AnyKernel3
