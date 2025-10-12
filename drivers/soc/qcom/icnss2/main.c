@@ -104,7 +104,7 @@ static void icnss_set_plat_priv(struct icnss_priv *priv)
 	penv = priv;
 }
 
-static struct icnss_priv *icnss_get_plat_priv()
+static struct icnss_priv *icnss_get_plat_priv(void)
 {
 	return penv;
 }
@@ -3990,4 +3990,4 @@ module_init(icnss_initialize);
 module_exit(icnss_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION(DEVICE "iWCN CORE platform driver");
+MODULE_DESCRIPTION("ICNSS2 iWCN CORE platform driver");

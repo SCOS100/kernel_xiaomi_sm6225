@@ -50,8 +50,10 @@
 
 #if defined(HIF_PCI) || defined(HIF_SNOC) || defined(HIF_AHB) || \
     defined(HIF_IPCI)
-#include <ce_api.h>
+#include "../../../qca-wifi-host-cmn/hif/src/ce/ce_api.h"
 #endif
+
+//#include "../../../qca-wifi-host-cmn/hif/src/ce/ce_assignment.h"
 
 /**
  * ol_tx_setup_fastpath_ce_handles() Update ce_handle for fastpath use.

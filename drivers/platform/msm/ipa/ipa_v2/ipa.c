@@ -4805,6 +4805,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	return result;
 }
 
+#ifdef CONFIG_IPA
 int ipa_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl,
 	const struct of_device_id *pdrv_match)
@@ -4901,6 +4902,7 @@ int ipa_plat_drv_probe(struct platform_device *pdev_p,
 
 	return result;
 }
+#endif
 
 /**
  * ipa2_ap_suspend() - suspend callback for runtime_pm

@@ -251,6 +251,7 @@ void assert_clamps(struct pil_desc *pil)
 	/* To make sure asserting clamps is done before MSS restart*/
 	mb();
 }
+EXPORT_SYMBOL(assert_clamps);
 
 static void __pil_q6v5_shutdown(struct pil_desc *pil)
 {

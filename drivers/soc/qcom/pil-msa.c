@@ -270,6 +270,7 @@ int pil_mss_assert_resets(struct q6v5_data *drv)
 
 	return ret;
 }
+EXPORT_SYMBOL(pil_mss_assert_resets);
 
 int pil_mss_deassert_resets(struct q6v5_data *drv)
 {
@@ -288,6 +289,7 @@ int pil_mss_deassert_resets(struct q6v5_data *drv)
 
 	return ret;
 }
+EXPORT_SYMBOL(pil_mss_deassert_resets);
 
 static int pil_msa_wait_for_mba_ready(struct q6v5_data *drv)
 {
@@ -426,6 +428,7 @@ int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path)
 
 	return ret;
 }
+EXPORT_SYMBOL(__pil_mss_deinit_image);
 
 int pil_mss_deinit_image(struct pil_desc *pil)
 {
@@ -503,6 +506,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL(pil_mss_make_proxy_votes);
 
 void pil_mss_remove_proxy_votes(struct pil_desc *pil)
 {
@@ -516,6 +520,7 @@ void pil_mss_remove_proxy_votes(struct pil_desc *pil)
 		regulator_set_voltage(drv->vreg, 0, INT_MAX);
 	}
 }
+EXPORT_SYMBOL(pil_mss_remove_proxy_votes);
 
 static int pil_mss_mem_setup(struct pil_desc *pil,
 					phys_addr_t addr, size_t size)
@@ -785,6 +790,7 @@ err_invalid_fw:
 	drv->mba_dp_virt = NULL;
 	return ret;
 }
+EXPORT_SYMBOL(pil_mss_reset_load_mba);
 
 int pil_mss_debug_reset(struct pil_desc *pil)
 {
@@ -848,6 +854,7 @@ err_restart:
 		clk_disable_unprepare(drv->ahb_clk);
 	return ret;
 }
+EXPORT_SYMBOL(pil_mss_debug_reset);
 
 static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 				  size_t size,  phys_addr_t region_start,
@@ -1026,6 +1033,7 @@ struct pil_reset_ops pil_msa_mss_ops = {
 	.auth_and_reset = pil_mss_reset,
 	.shutdown = pil_mss_shutdown,
 };
+EXPORT_SYMBOL(pil_msa_mss_ops);
 
 /*
  * To be used if self-auth is enabled and the MBA is to be loaded
@@ -1042,6 +1050,7 @@ struct pil_reset_ops pil_msa_mss_ops_selfauth = {
 	.deinit_image = pil_mss_deinit_image,
 	.shutdown = pil_mss_shutdown,
 };
+EXPORT_SYMBOL(pil_msa_mss_ops_selfauth);
 
 /*
  * To be used if the modem headers are to be authenticated

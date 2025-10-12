@@ -299,8 +299,7 @@ pe_init_pmf_comeback_timer(tpAniSirGlobal mac_ctx, struct pe_session *session)
 }
 #else
 static inline void
-pe_init_pmf_comeback_timer(tpAniSirGlobal mac_ctx, struct pe_session *session,
-			   uint8_t vdev_id)
+pe_init_pmf_comeback_timer(tpAniSirGlobal mac_ctx, struct pe_session *session)
 {
 }
 #endif

@@ -16,6 +16,7 @@
 
 /* WIFI3 - Refers to platforms - 6290/6390/6490 */
 #include "pktlog_wifi3.h"
+#include "../../../qcacld-3.0/uapi/linux/pktlog_ac_fmt.h"
 
 #ifndef REMOVE_PKT_LOG
 A_STATUS

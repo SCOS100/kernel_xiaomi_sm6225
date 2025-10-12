@@ -41,7 +41,7 @@
 #define MANUFACTURER_ID_QCA9379_BASE       0x800
 #define MANUFACTURER_CODE                  0x271
 
-#ifndef CONFIG_CNSS
+//#ifndef CONFIG_CNSS
 static const struct pld_fw_files fw_files_qca6174_fw_1_1 = {
 	PREFIX "qwlan11.bin", PREFIX  "bdwlan11.bin", PREFIX "otp11.bin",
 	PREFIX  "utf11.bin", PREFIX "utfbd11.bin", PREFIX "qsetup11.bin",
@@ -62,7 +62,7 @@ static const struct pld_fw_files fw_files_default = {
 	PREFIX "qwlan.bin", PREFIX "bdwlan.bin", PREFIX "otp.bin",
 	PREFIX "utf.bin", PREFIX "utfbd.bin", PREFIX "qsetup.bin",
 	PREFIX "epping.bin", ""};
-#endif
+//#endif
 
 /**
  * pld_sdio_probe() - Probe function for SDIO platform driver

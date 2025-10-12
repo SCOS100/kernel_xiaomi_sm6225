@@ -23,6 +23,7 @@
 
 #ifndef __HIF_PCI_INTERNAL_H__
 #define __HIF_PCI_INTERNAL_H__
+#include "../../../qcacld-3.0/uapi/linux/a_debug.h"
 
 #ifndef PEER_CACHEING_HOST_ENABLE
 #define PEER_CACHEING_HOST_ENABLE 0
@@ -32,6 +33,8 @@
 #define HIF_PCI_IPA_UC_ASSIGNED_CE  5
 
 #if defined(WLAN_DEBUG) || defined(DEBUG)
+#ifndef __HIF_PCI_INTERNAL_DEBUG__
+#define __HIF_PCI_INTERNAL_DEBUG__
 static ATH_DEBUG_MASK_DESCRIPTION g_hif_debug_description[] = {
 	{HIF_PCI_DEBUG, "hif_pci"},
 };
@@ -41,6 +44,7 @@ ATH_DEBUG_INSTANTIATE_MODULE_VAR(hif, "hif", "PCIe Host Interface",
 				ATH_DEBUG_DESCRIPTION_COUNT
 					 (g_hif_debug_description),
 				 g_hif_debug_description);
+#endif
 #endif
 
 #ifdef CONFIG_ATH_PCIE_ACCESS_DEBUG

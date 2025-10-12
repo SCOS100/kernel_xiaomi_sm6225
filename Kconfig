@@ -19,6 +19,10 @@ source "net/Kconfig"
 
 source "drivers/Kconfig"
 
+menu "Extra Addons"
+source "extra/Kconfig"
+endmenu
+
 source "fs/Kconfig"
 
 source "security/Kconfig"

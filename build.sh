@@ -17,13 +17,15 @@ if ! grep "=m$" ../.config 2>/dev/null >/dev/null; then
 fi
 rm README*
 cd ..
-make -j$(nproc --all) INSTALL_MOD_PATH=$(pwd)/AnyKernel3/modules/ ARCH=arm64 CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 Image.gz dtbo.img
+make -j24 INSTALL_MOD_PATH=$(pwd)/AnyKernel3/modules/ ARCH=arm64 CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1
+#make -j24 INSTALL_MOD_PATH=$(pwd)/AnyKernel3/modules/ ARCH=arm64 CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 modules_install
 if ! [ "$?" -eq "0" ]; then
 	echo "The compilation did not go well. Exiting..."
 	exit 1
 else
 	cp arch/arm64/boot/Image.gz arch/arm64/boot/dtbo.img AnyKernel3
 	cd AnyKernel3
+	find -type l -exec rm {} \;
 	zip -r9 ../SPESND.zip * -x .git README.md *placeholder
 	cd ..
 	echo "Zip saved as SPESND.zip. Please flash it into your phone's recovery if supported."

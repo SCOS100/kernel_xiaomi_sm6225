@@ -1,0 +1,7 @@
+config V4L2LOOPBACK
+	tristate "V4L2 Loopback Driver"
+	depends on VIDEO_V4L2 && VIDEOBUF2_CORE && m
+	default n
+	help
+	  v4l2loopback taken from <https://github.com/v4l2loopback/v4l2loopback.git>
+	  This should work as a built-in, but works best if compiled as a module.

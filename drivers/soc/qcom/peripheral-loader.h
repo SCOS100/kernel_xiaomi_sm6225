@@ -10,6 +10,9 @@
 #include "minidump_private.h"
 #include <linux/ipc_logging.h>
 
+//extern struct tracepoint __tracepoint_pil_func;
+//EXPORT_SYMBOL(__tracepoint_pil_func);
+
 struct device;
 struct module;
 struct pil_priv;

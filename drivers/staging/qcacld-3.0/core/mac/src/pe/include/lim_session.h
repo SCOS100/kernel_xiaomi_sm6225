@@ -310,9 +310,9 @@ struct pe_session {
 	uint8_t limWmeEnabled:1;        /* WME */
 	uint8_t limWsmEnabled:1;        /* WSM */
 	uint8_t limHcfEnabled:1;
-#ifdef WLAN_FEATURE_11W
+//#ifdef WLAN_FEATURE_11W
 	uint8_t limRmfEnabled:1;        /* 11W */
-#endif
+//#endif
 	uint32_t lim11hEnable;
 
 	int8_t maxTxPower;   /* MIN (Regulatory and local power constraint) */

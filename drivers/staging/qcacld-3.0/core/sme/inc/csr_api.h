@@ -704,12 +704,12 @@ struct csr_roam_profile {
 	tCsrEncryptionList mcEncryptionType;
 	/* This field is for output only, not for input */
 	eCsrEncryptionType negotiatedMCEncryptionType;
-#ifdef WLAN_FEATURE_11W
+//#ifdef WLAN_FEATURE_11W
 	/* Management Frame Protection */
 	bool MFPEnabled;
 	uint8_t MFPRequired;
 	uint8_t MFPCapable;
-#endif
+//#endif
 	tAniEdType mgmt_encryption_type;
 	tCsrKeys Keys;
 	tCsrChannelInfo ChannelInfo;

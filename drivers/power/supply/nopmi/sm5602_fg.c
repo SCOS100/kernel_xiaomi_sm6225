@@ -38,6 +38,10 @@
 #include <linux/ktime.h>
 #include "sm5602_fg.h"
 #include <linux/pmic-voter.h>//"pmic-voter.h"
+
+#undef pr_info
+#define pr_info(fmt, ...) do { } while (0)
+
 //#include "step-chg-jeita.h"
 
 #define	INVALID_REG_ADDR	0xFF

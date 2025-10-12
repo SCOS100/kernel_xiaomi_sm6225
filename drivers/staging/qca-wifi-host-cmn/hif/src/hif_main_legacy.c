@@ -20,6 +20,8 @@
 #include "qdf_status.h"
 #include "qdf_module.h"
 #include "hif_main.h"
+#include "ce/ce_api.h"
+#include "ce/ce_internal.h"
 
 #if defined(HIF_PCI) || defined(HIF_SNOC) || defined(HIF_AHB)
 #include "ce_api.h"

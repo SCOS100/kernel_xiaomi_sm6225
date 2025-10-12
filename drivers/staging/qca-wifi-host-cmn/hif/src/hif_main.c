@@ -1015,7 +1015,7 @@ void hif_crash_shutdown(struct hif_opaque_softc *hif_ctx)
 }
 #endif /* TARGET_RAMDUMP_AFTER_KERNEL_PANIC */
 
-#ifdef QCA_WIFI_3_0
+//#ifdef QCA_WIFI_3_0
 /**
  * hif_check_fw_reg(): hif_check_fw_reg
  * @scn: scn
@@ -1027,7 +1027,7 @@ int hif_check_fw_reg(struct hif_opaque_softc *scn)
 {
 	return 0;
 }
-#endif
+//#endif
 
 /**
  * hif_read_phy_mem_base(): hif_read_phy_mem_base

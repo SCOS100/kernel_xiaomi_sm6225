@@ -2203,6 +2203,7 @@ struct qmi_elem_info wlfw_msa_info_resp_msg_v01_ei[] = {
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
 	},
 };
+EXPORT_SYMBOL(wlfw_msa_info_resp_msg_v01_ei);
 
 struct qmi_elem_info wlfw_msa_ready_req_msg_v01_ei[] = {
 	{

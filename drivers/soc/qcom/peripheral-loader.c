@@ -1471,6 +1471,7 @@ bool is_timeout_disabled(void)
 {
 	return disable_timeouts;
 }
+EXPORT_SYMBOL(is_timeout_disabled);
 
 static int collect_aux_minidump_ids(struct pil_desc *desc)
 {

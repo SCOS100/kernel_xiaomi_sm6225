@@ -61,9 +61,9 @@ struct ath_pktlog_hdr {
 #endif
 	uint16_t size;
 	uint32_t timestamp;
-#ifdef PKTLOG_HAS_SPECIFIC_DATA
+//#ifdef PKTLOG_HAS_SPECIFIC_DATA
 	uint32_t type_specific_data;
-#endif
+//#endif
 } __ATTRIB_PACK;
 
 #define ATH_PKTLOG_HDR_FLAGS_MASK 0xffff

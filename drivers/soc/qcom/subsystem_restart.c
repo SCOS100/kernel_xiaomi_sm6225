@@ -219,6 +219,7 @@ void complete_shutdown_ack(struct subsys_device *subsys)
 {
 	complete(&subsys->shutdown_ack);
 }
+EXPORT_SYMBOL(complete_shutdown_ack);
 
 static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
 {
