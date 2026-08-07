@@ -21,7 +21,7 @@ cd ..
 ls -las
 
 echo "START build"
-CONTAINER_HASH=$(docker run --detach --privileged --cgroupns=host -v ./out:/buildd/out -v ${PWD}/kernel:/buildd/sources --security-opt seccomp:unconfined quay.io/droidian/build-essential:next-amd64 sleep infinity)
+CONTAINER_HASH=$(docker run --detach --privileged --cgroupns=host -v ./out:/buildd -v ${PWD}/kernel:/buildd/sources --security-opt seccomp:unconfined quay.io/droidian/build-essential:next-amd64 sleep infinity)
 docker exec $CONTAINER_HASH bash -c "apt install linux-packaging-snippets; ls -las buildd; cd buildd/sources; ls -las; rm -f debian/control; debian/rules debian/control; RELENG_HOST_ARCH=\"arm64\" releng-build-package"
 
 echo "END build"
