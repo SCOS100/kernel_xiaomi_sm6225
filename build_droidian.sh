@@ -1,6 +1,7 @@
 #!/bin/sh
 
 echo "CREATE dirs"
+mkdir -p out
 cd kernel
 mkdir -p debian/source
 cp arch/arm64/configs/spes_kernel_info.mk debian/kernel-info.mk
@@ -14,10 +15,6 @@ include /usr/share/linux-packaging-snippets/kernel-snippet.mk
 	dh \$@
 EOF
 chmod +x debian/rules
-
-echo "CLEAN out"
-rm -f ./out/*.deb ./out/*.build* ./out/*.changes
-
 cd ..
 
 echo "START build"
