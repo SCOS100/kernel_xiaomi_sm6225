@@ -1,11 +1,11 @@
 name: Build and Publish Droidian Kernel
 
 on:
+  workflow_dispatch:
   push:
     branches: [ droidian ]
   pull_request:
     branches: [ droidian ]
-  workflow_dispatch:
   schedule:
     - cron: "59 23 * * *"
 
