@@ -24,6 +24,7 @@
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
+#define MSM_BO_EXTBUF        0x80000000    /* indicate BO is an import buffer */
 
 struct msm_gem_address_space {
 	const char *name;

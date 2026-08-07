@@ -67,6 +67,7 @@ modules.builtin
 
 # Ignored Paths
 out/
+build/
 tc/
 AnyKernel3
 

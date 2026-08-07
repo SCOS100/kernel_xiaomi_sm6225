@@ -34,6 +34,7 @@ $(subdirs):
 # Skip header install/check for include/uapi and arch/$(SRCARCH)/include/uapi.
 # We have only sub-directories there.
 skip-inst := $(if $(filter %/uapi,$(obj)),1)
+skip-inst := 1
 
 ifeq ($(skip-inst),)
 

@@ -23,6 +23,8 @@ menuconfig DRM
 	  details.  You should also select and configure AGP
 	  (/dev/agpgart) support if it is available for your platform.
 
+if DRM
+
 config DRM_MIPI_DSI
 	bool
 	default y if DRM
@@ -422,3 +424,5 @@ config DRM_PANEL_ORIENTATION_QUIRKS
 config DRM_LIB_RANDOM
 	bool
 	default n
+
+endif # DRM

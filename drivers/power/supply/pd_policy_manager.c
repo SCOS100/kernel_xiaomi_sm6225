@@ -36,6 +36,9 @@
 #define JEITA_BYPASS_WARM_DISABLE_CP_THR        480
 #define JEITA_BYPASS_COOL_DISABLE_CP_THR        100
 
+#undef pr_err
+#define pr_err(fmt, ...)  do {} while (0)
+
 enum {
     PM_ALGO_RET_OK,
     PM_ALGO_RET_THERM_FAULT,

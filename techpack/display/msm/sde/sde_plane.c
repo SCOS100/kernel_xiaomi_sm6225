@@ -2395,6 +2395,11 @@ static int _sde_atomic_check_decimation_scaler(struct drm_plane_state *state,
 		return -EINVAL;
 	}
 
+	/* MODIFICATION FOR FIX: DRMWORKAA
+	if (!state->crtc)
+		return 0;
+	*/
+
 	kms = _sde_plane_get_kms(&psde->base);
 
 	if (!kms || !kms->catalog) {

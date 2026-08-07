@@ -1,0 +1,1 @@
+if aarch64-linux-gnu-cpp -nostdinc -I $1/include -I $1/arch/arm64/include -undef -x assembler-with-cpp $2 | dtc -q -I dts -O dtb -o /dev/null -; then echo "Build completed!" >&2; else echo "Error while building!" >&2; fi

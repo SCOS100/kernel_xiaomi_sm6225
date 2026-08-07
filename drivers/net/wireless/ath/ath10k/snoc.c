@@ -26,7 +26,24 @@
 #include "debug.h"
 #include "hif.h"
 #include "htc.h"
+#include "bmi.h"
 #include "snoc.h"
+
+struct bmi_xfer {
+	bool tx_done;
+	bool rx_done;
+	bool wait_for_resp;
+	u32 resp_len;
+};
+
+/* Allow forcing host-driven firmware download when platform does NOT
+ * provide remoteproc / icnss support. Useful for bringup and testing.
+ * - kernel cmdline: ath10k_snoc.force_host_fw=1
+ * - device tree:   qcom,force-host-fw
+ */
+static bool snoc_force_host_fw;
+module_param(snoc_force_host_fw, bool, 0444);
+MODULE_PARM_DESC(snoc_force_host_fw, "Force host firmware download instead of waiting for QMI WLFW");
 
 #define ATH10K_SNOC_RX_POST_RETRY_MS 50
 #define CE_POLL_PIPE 4
@@ -62,10 +79,79 @@ static void ath10k_snoc_htt_tx_cb(struct ath10k_ce_pipe *ce_state);
 static void ath10k_snoc_htc_rx_cb(struct ath10k_ce_pipe *ce_state);
 static void ath10k_snoc_htt_rx_cb(struct ath10k_ce_pipe *ce_state);
 static void ath10k_snoc_htt_htc_rx_cb(struct ath10k_ce_pipe *ce_state);
+static void ath10k_snoc_pktlog_rx_cb(struct ath10k_ce_pipe *ce_state);
+static int ath10k_snoc_wlan_enable(struct ath10k *ar);
+static bool ath10k_snoc_force_host_fw(struct ath10k *ar);
 
 static const struct ath10k_snoc_drv_priv drv_priv = {
 	.hw_rev = ATH10K_HW_WCN3990,
 	.dma_mask = DMA_BIT_MASK(37),
+	.msa_size = 0x100000,
+};
+
+#define WCN3990_SRC_WR_IDX_OFFSET 0x3C
+#define WCN3990_DST_WR_IDX_OFFSET 0x40
+
+static struct ath10k_shadow_reg_cfg target_shadow_reg_cfg_map[] = {
+		{
+			.ce_id = __cpu_to_le16(0),
+			.reg_offset = __cpu_to_le16(WCN3990_SRC_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(3),
+			.reg_offset = __cpu_to_le16(WCN3990_SRC_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(4),
+			.reg_offset = __cpu_to_le16(WCN3990_SRC_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(5),
+			.reg_offset =  __cpu_to_le16(WCN3990_SRC_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(7),
+			.reg_offset = __cpu_to_le16(WCN3990_SRC_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(1),
+			.reg_offset = __cpu_to_le16(WCN3990_DST_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(2),
+			.reg_offset =  __cpu_to_le16(WCN3990_DST_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(7),
+			.reg_offset =  __cpu_to_le16(WCN3990_DST_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(8),
+			.reg_offset =  __cpu_to_le16(WCN3990_DST_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(9),
+			.reg_offset = __cpu_to_le16(WCN3990_DST_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(10),
+			.reg_offset =  __cpu_to_le16(WCN3990_DST_WR_IDX_OFFSET),
+		},
+
+		{
+			.ce_id = __cpu_to_le16(11),
+			.reg_offset = __cpu_to_le16(WCN3990_DST_WR_IDX_OFFSET),
+		},
 };
 
 static struct ce_attr host_ce_config_wlan[] = {
@@ -171,7 +257,129 @@ static struct ce_attr host_ce_config_wlan[] = {
 		.src_nentries = 0,
 		.src_sz_max = 2048,
 		.dest_nentries = 512,
-		.recv_cb = ath10k_snoc_htt_htc_rx_cb,
+		.recv_cb = ath10k_snoc_pktlog_rx_cb,
+	},
+};
+
+static struct ce_pipe_config target_ce_config_wlan[] = {
+	/* CE0: host->target HTC control and raw streams */
+	{
+		.pipenum = __cpu_to_le32(0),
+		.pipedir = __cpu_to_le32(PIPEDIR_OUT),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE1: target->host HTT + HTC control */
+	{
+		.pipenum = __cpu_to_le32(1),
+		.pipedir = __cpu_to_le32(PIPEDIR_IN),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE2: target->host WMI */
+	{
+		.pipenum = __cpu_to_le32(2),
+		.pipedir = __cpu_to_le32(PIPEDIR_IN),
+		.nentries = __cpu_to_le32(64),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE3: host->target WMI */
+	{
+		.pipenum = __cpu_to_le32(3),
+		.pipedir = __cpu_to_le32(PIPEDIR_OUT),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE4: host->target HTT */
+	{
+		.pipenum = __cpu_to_le32(4),
+		.pipedir = __cpu_to_le32(PIPEDIR_OUT),
+		.nentries = __cpu_to_le32(256),
+		.nbytes_max = __cpu_to_le32(256),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS | CE_ATTR_DIS_INTR),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE5: target->host HTT (HIF->HTT) */
+	{
+		.pipenum = __cpu_to_le32(5),
+		.pipedir = __cpu_to_le32(PIPEDIR_OUT),
+		.nentries = __cpu_to_le32(1024),
+		.nbytes_max = __cpu_to_le32(64),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS | CE_ATTR_DIS_INTR),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE6: Reserved for target autonomous hif_memcpy */
+	{
+		.pipenum = __cpu_to_le32(6),
+		.pipedir = __cpu_to_le32(PIPEDIR_INOUT),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(16384),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE7 used only by Host */
+	{
+		.pipenum = __cpu_to_le32(7),
+		.pipedir = __cpu_to_le32(4),
+		.nentries = __cpu_to_le32(0),
+		.nbytes_max = __cpu_to_le32(0),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS | CE_ATTR_DIS_INTR),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE8 Target to uMC */
+	{
+		.pipenum = __cpu_to_le32(8),
+		.pipedir = __cpu_to_le32(PIPEDIR_IN),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(0),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE9 target->host HTT */
+	{
+		.pipenum = __cpu_to_le32(9),
+		.pipedir = __cpu_to_le32(PIPEDIR_IN),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE10 target->host HTT */
+	{
+		.pipenum = __cpu_to_le32(10),
+		.pipedir = __cpu_to_le32(PIPEDIR_IN),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
+	},
+
+	/* CE11 target autonomous qcache memcpy */
+	{
+		.pipenum = __cpu_to_le32(11),
+		.pipedir = __cpu_to_le32(PIPEDIR_IN),
+		.nentries = __cpu_to_le32(32),
+		.nbytes_max = __cpu_to_le32(2048),
+		.flags = __cpu_to_le32(CE_ATTR_FLAGS),
+		.reserved = __cpu_to_le32(0),
 	},
 };
 
@@ -436,6 +644,14 @@ static void ath10k_snoc_htt_htc_rx_cb(struct ath10k_ce_pipe *ce_state)
 	ath10k_snoc_process_rx_cb(ce_state, ath10k_htc_rx_completion_handler);
 }
 
+/* Called by lower (CE) layer when data is received from the Target.
+ * WCN3990 firmware uses separate CE(CE11) to transfer pktlog data.
+ */
+static void ath10k_snoc_pktlog_rx_cb(struct ath10k_ce_pipe *ce_state)
+{
+	ath10k_snoc_process_rx_cb(ce_state, ath10k_htc_rx_completion_handler);
+}
+
 static void ath10k_snoc_htt_rx_deliver(struct ath10k *ar, struct sk_buff *skb)
 {
 	skb_pull(skb, sizeof(struct ath10k_htc_hdr));
@@ -616,7 +832,7 @@ static int ath10k_snoc_hif_map_service_to_pipe(struct ath10k *ar,
 		}
 	}
 
-	if (WARN_ON(!ul_set || !dl_set))
+	if (!ul_set || !dl_set)
 		return -ENOENT;
 
 	return 0;
@@ -722,14 +938,15 @@ static void ath10k_snoc_buffer_cleanup(struct ath10k *ar)
 static void ath10k_snoc_hif_stop(struct ath10k *ar)
 {
 	ath10k_snoc_irq_disable(ar);
-	ath10k_snoc_buffer_cleanup(ar);
 	napi_synchronize(&ar->napi);
 	napi_disable(&ar->napi);
+	ath10k_snoc_buffer_cleanup(ar);
 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif stop\n");
 }
 
 static int ath10k_snoc_hif_start(struct ath10k *ar)
 {
+	napi_enable(&ar->napi);
 	ath10k_snoc_irq_enable(ar);
 	ath10k_snoc_rx_post(ar);
 
@@ -756,11 +973,47 @@ static int ath10k_snoc_init_pipes(struct ath10k *ar)
 
 static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 {
-	return 0;
+	struct ath10k_tgt_pipe_cfg tgt_cfg[CE_COUNT_MAX];
+	struct ath10k_qmi_wlan_enable_cfg cfg;
+	enum wlfw_driver_mode_enum_v01 mode;
+	int pipe_num;
+
+	for (pipe_num = 0; pipe_num < CE_COUNT_MAX; pipe_num++) {
+		tgt_cfg[pipe_num].pipe_num =
+				target_ce_config_wlan[pipe_num].pipenum;
+		tgt_cfg[pipe_num].pipe_dir =
+				target_ce_config_wlan[pipe_num].pipedir;
+		tgt_cfg[pipe_num].nentries =
+				target_ce_config_wlan[pipe_num].nentries;
+		tgt_cfg[pipe_num].nbytes_max =
+				target_ce_config_wlan[pipe_num].nbytes_max;
+		tgt_cfg[pipe_num].flags =
+				target_ce_config_wlan[pipe_num].flags;
+		tgt_cfg[pipe_num].reserved = 0;
+	}
+
+	cfg.num_ce_tgt_cfg = sizeof(target_ce_config_wlan) /
+				sizeof(struct ath10k_tgt_pipe_cfg);
+	cfg.ce_tgt_cfg = (struct ath10k_tgt_pipe_cfg *)
+		&tgt_cfg;
+	cfg.num_ce_svc_pipe_cfg = sizeof(target_service_to_ce_map_wlan) /
+				  sizeof(struct ath10k_svc_pipe_cfg);
+	cfg.ce_svc_cfg = (struct ath10k_svc_pipe_cfg *)
+		&target_service_to_ce_map_wlan;
+	cfg.num_shadow_reg_cfg = sizeof(target_shadow_reg_cfg_map) /
+					sizeof(struct ath10k_shadow_reg_cfg);
+	cfg.shadow_reg_cfg = (struct ath10k_shadow_reg_cfg *)
+		&target_shadow_reg_cfg_map;
+
+	mode = QMI_WLFW_MISSION_V01;
+
+	return ath10k_qmi_wlan_enable(ar, &cfg, mode,
+				       NULL);
 }
 
 static void ath10k_snoc_wlan_disable(struct ath10k *ar)
 {
+	ath10k_qmi_wlan_disable(ar);
 }
 
 static void ath10k_snoc_hif_power_down(struct ath10k *ar)
@@ -771,6 +1024,13 @@ static void ath10k_snoc_hif_power_down(struct ath10k *ar)
 	ath10k_ce_free_rri(ar);
 }
 
+static bool ath10k_snoc_force_host_fw(struct ath10k *ar)
+{
+	return snoc_force_host_fw ||
+		(ar->dev && ar->dev->of_node &&
+		 of_property_read_bool(ar->dev->of_node, "qcom,force-host-fw"));
+}
+
 static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 {
 	int ret;
@@ -778,10 +1038,12 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 driver state = %d\n",
 		   __func__, ar->state);
 
-	ret = ath10k_snoc_wlan_enable(ar);
-	if (ret) {
-		ath10k_err(ar, "failed to enable wcn3990: %d\n", ret);
-		return ret;
+	if (!ath10k_snoc_force_host_fw(ar)) {
+		ret = ath10k_snoc_wlan_enable(ar);
+		if (ret) {
+			ath10k_err(ar, "failed to enable wcn3990: %d\n", ret);
+			return ret;
+		}
 	}
 
 	ath10k_ce_alloc_rri(ar);
@@ -789,15 +1051,121 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 	ret = ath10k_snoc_init_pipes(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to initialize CE: %d\n", ret);
-		goto err_free_rri;
+		goto err_wlan_enable;
 	}
 
-	napi_enable(&ar->napi);
 	return 0;
 
-err_free_rri:
-	ath10k_ce_free_rri(ar);
+err_wlan_enable:
 	ath10k_snoc_wlan_disable(ar);
+
+	return ret;
+}
+
+static int ath10k_snoc_hif_exchange_bmi_msg(struct ath10k *ar,
+					    void *req, u32 req_len,
+					    void *resp, u32 *resp_len)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	struct ath10k_ce_pipe *ce_tx = ar_snoc->pipe_info[BMI_CE_NUM_TO_TARG].ce_hdl;
+	struct ath10k_ce_pipe *ce_rx = ar_snoc->pipe_info[BMI_CE_NUM_TO_HOST].ce_hdl;
+	dma_addr_t req_paddr = 0;
+	dma_addr_t resp_paddr = 0;
+	struct bmi_xfer xfer = {};
+	void *treq, *tresp = NULL;
+	unsigned long timeout;
+	unsigned int nbytes;
+	int ret = 0;
+
+	might_sleep();
+
+	if (resp && !resp_len)
+		return -EINVAL;
+
+	if (resp && resp_len && *resp_len == 0)
+		return -EINVAL;
+
+	treq = kmemdup(req, req_len, GFP_KERNEL);
+	if (!treq)
+		return -ENOMEM;
+
+	req_paddr = dma_map_single(ar->dev, treq, req_len, DMA_TO_DEVICE);
+	ret = dma_mapping_error(ar->dev, req_paddr);
+	if (ret) {
+		ret = -EIO;
+		goto err_dma;
+	}
+
+	if (resp && resp_len) {
+		tresp = kzalloc(*resp_len, GFP_KERNEL);
+		if (!tresp) {
+			ret = -ENOMEM;
+			goto err_req;
+		}
+
+		resp_paddr = dma_map_single(ar->dev, tresp, *resp_len,
+					    DMA_FROM_DEVICE);
+		ret = dma_mapping_error(ar->dev, resp_paddr);
+		if (ret) {
+			ret = -EIO;
+			goto err_resp;
+		}
+
+		xfer.wait_for_resp = true;
+		xfer.resp_len = 0;
+
+		ath10k_ce_rx_post_buf(ce_rx, &xfer, resp_paddr);
+	}
+
+	ret = ath10k_ce_send(ce_tx, &xfer, req_paddr, req_len, -1, 0);
+	if (ret)
+		goto err_resp;
+
+	/* Poll for completion with timeout */
+	timeout = jiffies + BMI_COMMUNICATION_TIMEOUT_HZ;
+	while (time_before(jiffies, timeout)) {
+		if (ath10k_ce_completed_send_next(ce_tx, (void **)&xfer) == 0) {
+			xfer.tx_done = true;
+		}
+
+		if (resp) {
+			if (ath10k_ce_completed_recv_next(ce_rx,
+							   (void **)&xfer,
+							   &nbytes) == 0) {
+				xfer.resp_len = nbytes;
+				xfer.rx_done = true;
+			}
+		}
+
+		if (xfer.tx_done && (xfer.rx_done == xfer.wait_for_resp)) {
+			ret = 0;
+			goto out;
+		}
+
+		schedule();
+	}
+
+	ret = -ETIMEDOUT;
+
+out:
+	if (ret == -ETIMEDOUT)
+		ath10k_err(ar, "bmi exchange timed out\n");
+
+err_resp:
+	if (resp && resp_len) {
+		dma_unmap_single(ar->dev, resp_paddr, *resp_len,
+				 DMA_FROM_DEVICE);
+	}
+err_req:
+	dma_unmap_single(ar->dev, req_paddr, req_len, DMA_TO_DEVICE);
+err_dma:
+	kfree(treq);
+	kfree(tresp);
+
+	if (ret == 0 && resp_len && tresp) {
+		*resp_len = min(*resp_len, xfer.resp_len);
+		memcpy(resp, tresp, xfer.resp_len);
+	}
 
 	return ret;
 }
@@ -815,6 +1183,7 @@ static const struct ath10k_hif_ops ath10k_snoc_hif_ops = {
 	.send_complete_check	= ath10k_snoc_hif_send_complete_check,
 	.get_free_queue_number	= ath10k_snoc_hif_get_free_queue_number,
 	.get_target_info	= ath10k_snoc_hif_get_target_info,
+	.exchange_bmi_msg	= ath10k_snoc_hif_exchange_bmi_msg,
 };
 
 static const struct ath10k_bus_ops ath10k_snoc_bus_ops = {
@@ -879,12 +1248,13 @@ static void ath10k_snoc_init_napi(struct ath10k *ar)
 static int ath10k_snoc_request_irq(struct ath10k *ar)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	int irqflags = IRQF_TRIGGER_RISING;
 	int ret, id;
 
 	for (id = 0; id < CE_COUNT_MAX; id++) {
 		ret = request_irq(ar_snoc->ce_irqs[id].irq_line,
-				  ath10k_snoc_per_engine_handler, 0,
-				  ce_name[id], ar);
+				  ath10k_snoc_per_engine_handler,
+				  irqflags, ce_name[id], ar);
 		if (ret) {
 			ath10k_err(ar,
 				   "failed to register IRQ handler for CE %d: %d",
@@ -946,6 +1316,40 @@ static int ath10k_snoc_resource_init(struct ath10k *ar)
 
 out:
 	return ret;
+}
+
+int ath10k_snoc_fw_indication(struct ath10k *ar, u64 type)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	struct ath10k_bus_params bus_params;
+	int ret;
+
+	/* avoid double-registration if fallback already registered core */
+	if (test_bit(ATH10K_FLAG_CORE_REGISTERED, &ar->dev_flags)) {
+		ath10k_dbg(ar, ATH10K_DBG_SNOC, "core already registered, skipping fw indication\n");
+		return 0;
+	}
+
+	switch (type) {
+	case ATH10K_QMI_EVENT_FW_READY_IND:
+		bus_params.dev_type = ATH10K_DEV_TYPE_LL;
+		bus_params.chip_id = ar_snoc->target_info.soc_version;
+		
+		ret = ath10k_core_register(ar, &bus_params);
+		if (ret) {
+			ath10k_err(ar, "failed to register driver core: %d\n",
+				   ret);
+			return ret;
+		}
+		break;
+	case ATH10K_QMI_EVENT_FW_DOWN_IND:
+		break;
+	default:
+		ath10k_err(ar, "invalid fw indication: %llx\n", type);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int ath10k_snoc_setup_resource(struct ath10k *ar)
@@ -1064,6 +1468,13 @@ static int ath10k_wcn3990_vreg_on(struct ath10k *ar)
 
 		if (!vreg_info->reg)
 			continue;
+
+#ifdef CONFIG_ATH10K_SNOC_VOLTAGE_OVERRIDE
+		if (strcmp(vreg_info->name, "vdd-0.8-cx-mx") == 0) {
+			vreg_info->min_v = CONFIG_ATH10K_SNOC_VOLTAGE_OVERRIDE;
+			vreg_info->max_v = CONFIG_ATH10K_SNOC_VOLTAGE_OVERRIDE;
+		}
+#endif
 
 		ath10k_dbg(ar, ATH10K_DBG_SNOC, "snoc regulator %s being enabled\n",
 			   vreg_info->name);
@@ -1190,7 +1601,7 @@ static int ath10k_wcn3990_clk_init(struct ath10k *ar)
 	return 0;
 
 err_clock_config:
-	for (i = i - 1; i >= 0; i--) {
+	for (; i >= 0; i--) {
 		clk_info = &ar_snoc->clk[i];
 
 		if (!clk_info->handle)
@@ -1272,8 +1683,10 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	struct ath10k_snoc *ar_snoc;
 	struct device *dev;
 	struct ath10k *ar;
+	u32 msa_size;
 	int ret;
 	u32 i;
+	dev_info(&pdev->dev, "ath10k snoc driver initialization starts here.");
 
 	of_id = of_match_device(ath10k_snoc_dt_match, &pdev->dev);
 	if (!of_id) {
@@ -1303,6 +1716,7 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	ar_snoc->ar = ar;
 	ar_snoc->ce.bus_ops = &ath10k_snoc_bus_ops;
 	ar->ce_priv = &ar_snoc->ce;
+	msa_size = drv_data->msa_size;
 
 	ret = ath10k_snoc_resource_init(ar);
 	if (ret) {
@@ -1341,19 +1755,27 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		goto err_free_irq;
 	}
 
-	ret = ath10k_core_register(ar, drv_data->hw_rev);
+	ret = ath10k_qmi_init(ar, msa_size);
 	if (ret) {
-		ath10k_err(ar, "failed to register driver core: %d\n", ret);
-		goto err_hw_power_off;
+		ath10k_warn(ar, "failed to register wlfw qmi client: %d\n", ret);
+		goto err_core_destroy;
+	}
+
+	/* If platform/DT or kernel cmdline requests host-driven firmware
+	 * download (useful when remoteproc/icnss are not available), skip
+	 * waiting for WLFW and register core so the normal ath10k fw
+	 * probe/download path runs.
+	 */
+	if (ath10k_snoc_force_host_fw(ar)) {
+		ath10k_warn(ar, "forcing host firmware download (qcom,force-host-fw)\n");
+		/* reuse existing fw indication path to register core */
+		ath10k_snoc_fw_indication(ar, ATH10K_QMI_EVENT_FW_READY_IND);
 	}
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "snoc probe\n");
 	ath10k_warn(ar, "Warning: SNOC support is still work-in-progress, it will not work properly!");
 
 	return 0;
-
-err_hw_power_off:
-	ath10k_hw_power_off(ar);
 
 err_free_irq:
 	ath10k_snoc_free_irq(ar);
@@ -1376,6 +1798,7 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	ath10k_hw_power_off(ar);
 	ath10k_snoc_free_irq(ar);
 	ath10k_snoc_release_resource(ar);
+	ath10k_qmi_deinit(ar);
 	ath10k_core_destroy(ar);
 
 	return 0;

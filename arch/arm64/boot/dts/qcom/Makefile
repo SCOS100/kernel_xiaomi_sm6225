@@ -8,6 +8,14 @@ dtb-$(CONFIG_ARCH_QCOM)	+= msm8994-angler-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= sdm845-mtp.dtb
 
+ifeq ($(CONFIG_ARCH_KHAJE),y)
+dtb-$(CONFIG_ARCH_QCOM) += sm6225-idp-nopmi.dtb
+dtbo-$(CONFIG_ARCH_QCOM) += sm6225-xiaomi-spes-overlay.dtbo
+sm6225-xiaomi-spes-overlay.dtbo-base += sm6225-idp-nopmi.dtb
+#sm6225-xiaomi-spes-sm5602.dtbo-base += sm6225-idp-nopmi.dtb
+#sm6225-xiaomi-spesn.dtbo-base += sm6225-idp-nopmi.dtb
+endif
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files    := *.dtb *.dtbo

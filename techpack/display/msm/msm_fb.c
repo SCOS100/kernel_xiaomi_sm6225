@@ -355,6 +355,8 @@ struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
 
 	for (i = 0; i < n; i++) {
 		bos[i] = drm_gem_object_lookup(file, mode_cmd->handles[i]);
+		pr_info("msm_framebuffer_create: plane=%d, handle=%u, bos[%d]=%p\n",
+			i, mode_cmd->handles[i], i, bos[i]);
 		if (!bos[i]) {
 			ret = -ENXIO;
 			goto out_unref;

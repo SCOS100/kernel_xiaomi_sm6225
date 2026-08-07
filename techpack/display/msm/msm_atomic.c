@@ -727,7 +727,14 @@ retry:
 	if (ret)
 		goto err_free;
 
-	WARN_ON(drm_atomic_helper_swap_state(state, false) < 0);
+	// WARN_ON(drm_atomic_helper_swap_state(state, false) < 0);
+	/* MODIFICATION FOR FIX: DRMWORKAA */
+	ret = drm_atomic_helper_swap_state(state, false);
+	if (ret < 0) {
+		DRM_ERROR("swap_state failed: %d, aborting commit\n", ret);
+		goto err_free;
+	}
+	/* */
 
 	/*
 	 * Provide the driver a chance to prepare for output fences. This is

@@ -1365,6 +1365,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	if (rc)
 		goto remove_ahb_vote;
 
+#ifdef CONFIG_QCOM_KGSL
 	if ((soc_private->cx_ipeak_gpu_limit) &&
 		(!cpas_core->streamon_clients)) {
 		soc_private->gpu_pwr_limit =
@@ -1384,6 +1385,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 			}
 		}
 	}
+#endif
 
 	if (cpas_core->streamon_clients == 0) {
 		rc = cam_cpas_util_apply_default_axi_vote(cpas_hw, true);
@@ -1552,6 +1554,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 			atomic_read(&cpas_core->irq_count));
 		cpas_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 
+#ifdef CONFIG_QCOM_KGSL
 		if (soc_private->cx_ipeak_gpu_limit &&
 			soc_private->gpu_pwr_limit) {
 			kgsl_pwr_limits_set_default(
@@ -1559,6 +1562,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 			kgsl_pwr_limits_del(soc_private->gpu_pwr_limit);
 			soc_private->gpu_pwr_limit = NULL;
 		}
+#endif
 	}
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;

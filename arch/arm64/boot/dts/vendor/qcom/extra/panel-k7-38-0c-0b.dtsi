@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Xiaomi K7 38 0C 0B OLED Video Mode Panel with DSC
+ */
+
+&dsi0 {
+	panel_k7_38_0c_0b: panel@1 {
+		compatible = "xiaomi,k7-38-0c-0b-panel";
+		reg = <1>;
+
+		vddio-supply = <&L9A>;
+		vci-supply = <&L18A>;
+
+		reset-gpios = <&tlmm 82 GPIO_ACTIVE_LOW>;
+		enable-gpios = <&pm6125_gpios 9 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <99 IRQ_TYPE_EDGE_FALLING>;
+
+		backlight = <&backlight>;
+
+		panel-init-sequence = [
+			05 01 00 00 50 00 02 11 00
+			39 01 00 00 00 00 03 f0 5a 5a
+			39 01 00 00 00 00 03 b2 01 31
+			39 01 00 00 00 00 03 f0 a5 a5
+			39 01 00 00 00 00 03 f0 5a 5a
+			39 01 00 00 00 00 03 fc 5a 5a
+			39 01 00 00 00 00 02 e1 8b
+			39 01 00 00 00 00 03 ed 00 01
+			39 01 00 00 00 00 04 b0 00 06 f4
+			39 01 00 00 00 00 02 f4 1f
+			39 01 00 00 00 00 03 f0 a5 a5
+			39 01 00 00 00 00 03 fc a5 a5
+			39 01 00 00 00 00 03 f0 5a 5a
+			39 01 00 00 00 00 03 fc 5a 5a
+			39 01 00 00 00 00 04 b0 00 11 fe
+			39 01 00 00 00 00 02 fe 00
+			39 01 00 00 00 00 03 f0 a5 a5
+			39 01 00 00 00 00 03 fc a5 a5
+			39 01 00 00 00 00 02 9d 01
+			39 01 00 00 00 00 5a 9e 11 00 00 89 30 80 09 60 04 38 00 28 02 1c 02 1c 02 00 02 0e 00 20 03 dd 00 07 00 0c 02 77 02 8b 18 00 10 f0 03 0c 20 00 06 0b 0b 33 0e 1c 2a 38 46 54 62 69 70 77 79 7b 7d 7e 01 02 01 00 09 40 09 be 19 fc 19 fa 19 f8 1a 38 1a 78 1a b6 2a f6 2b 34 2b 74 3b 74 6b f4 00
+			39 01 00 00 00 00 03 f0 5a 5a
+			39 01 00 00 00 00 02 60 21
+			39 01 00 00 00 00 02 f7 0b
+			39 01 00 00 00 00 03 f0 a5 a5
+			39 01 00 00 00 00 03 f0 5a 5a
+			39 01 00 00 00 00 04 b0 00 0d b2
+			39 01 00 00 00 00 02 b2 20
+			39 01 00 00 00 00 04 b0 00 0c b2
+			39 01 00 00 00 00 02 b2 30
+			39 01 00 00 00 00 03 f0 a5 a5
+			39 01 00 00 00 00 02 53 28
+			39 01 00 00 00 00 02 f7 0b
+			39 01 00 00 00 00 03 f0 5a 5a
+			39 01 00 00 00 00 04 cd 29 00 08
+			39 01 00 00 00 00 03 f0 a5 a5
+			39 01 00 00 00 00 03 f0 5a 5a
+			39 01 00 00 00 00 03 fc 5a 5a
+			39 01 00 00 00 00 02 fe b0
+			39 01 00 00 00 00 02 fe 30
+			39 01 00 00 00 00 02 f7 0b
+			39 01 00 00 00 00 03 fc a5 a5
+			39 01 00 00 64 00 03 f0 a5 a5
+			05 01 00 00 1e 00 02 29 00
+		];
+
+		panel-disable-sequence = [
+			05 01 00 00 0a 00 01 28
+			05 01 00 00 96 00 01 10
+		];
+
+		hbm-on-command = [
+			39 01 00 00 00 00 02 53 e8
+			39 01 00 00 00 00 03 51 07 ff
+			39 01 00 00 00 00 02 f7 0b
+		];
+		hbm-off-command = [
+			39 01 00 00 00 00 02 53 28
+			39 01 00 00 00 00 02 f7 0b
+		];
+
+		display-timings {
+			native-mode = <&k7b_timing0>;
+
+			k7b_timing0: timing0 {
+				clock-frequency = <155770000>;
+				hactive = <1080>;
+				vactive = <2400>;
+				hfront-porch = <320>;
+				hback-porch = <120>;
+				hsync-len = <32>;
+				vfront-porch = <20>;
+				vback-porch = <10>;
+				vsync-len = <2>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active = <1>;
+				pixelclk-active = <0>;
+				frame-rate = <90>;
+			};
+		};
+
+		dsc-config {
+			slice-height = <20>;
+			slice-width = <540>;
+			slice-per-pkt = <1>;
+			bits-per-component = <8>;
+			bits-per-pixel = <8>;
+			block-prediction-enable;
+		};
+
+		port {
+			panel_k7_38_0c_0b_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
+};
+

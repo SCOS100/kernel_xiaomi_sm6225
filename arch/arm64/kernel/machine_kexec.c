@@ -16,6 +16,8 @@
 #include <linux/page-flags.h>
 #include <linux/smp.h>
 
+#include <linux/byteorder/little_endian.h>
+
 #include <asm/cacheflush.h>
 #include <asm/cpu_ops.h>
 #include <asm/daifflags.h>
@@ -39,15 +41,15 @@ static void _kexec_image_info(const char *func, int line,
 {
 	unsigned long i;
 
-	pr_debug("%s:%d:\n", func, line);
-	pr_debug("  kexec kimage info:\n");
-	pr_debug("    type:        %d\n", kimage->type);
-	pr_debug("    start:       %lx\n", kimage->start);
-	pr_debug("    head:        %lx\n", kimage->head);
-	pr_debug("    nr_segments: %lu\n", kimage->nr_segments);
+	pr_emerg("%s:%d:\n", func, line);
+	pr_emerg("  kexec kimage info:\n");
+	pr_emerg("    type:        %d\n", kimage->type);
+	pr_emerg("    start:       %lx\n", kimage->start);
+	pr_emerg("    head:        %lx\n", kimage->head);
+	pr_emerg("    nr_segments: %lu\n", kimage->nr_segments);
 
 	for (i = 0; i < kimage->nr_segments; i++) {
-		pr_debug("      segment[%lu]: %016lx - %016lx, 0x%lx bytes, %lu pages\n",
+		pr_emerg("      segment[%lu]: %016lx - %016lx, 0x%lx bytes, %lu pages\n",
 			i,
 			kimage->segment[i].mem,
 			kimage->segment[i].mem + kimage->segment[i].memsz,
@@ -124,10 +126,10 @@ static void kexec_segment_flush(const struct kimage *kimage)
 {
 	unsigned long i;
 
-	pr_debug("%s:\n", __func__);
+	pr_emerg("%s:\n", __func__);
 
 	for (i = 0; i < kimage->nr_segments; i++) {
-		pr_debug("  segment[%lu]: %016lx - %016lx, 0x%lx bytes, %lu pages\n",
+		pr_emerg("  segment[%lu]: %016lx - %016lx, 0x%lx bytes, %lu pages\n",
 			i,
 			kimage->segment[i].mem,
 			kimage->segment[i].mem + kimage->segment[i].memsz,
@@ -150,6 +152,8 @@ void machine_kexec(struct kimage *kimage)
 	void *reboot_code_buffer;
 	bool in_kexec_crash = (kimage == kexec_crash_image);
 	bool stuck_cpus = cpus_are_stuck_in_kernel();
+        phys_addr_t dtb_phys = 0;
+        unsigned long i;
 
 	/*
 	 * New cpus may have become stuck_in_kernel after we loaded the image.
@@ -163,17 +167,40 @@ void machine_kexec(struct kimage *kimage)
 
 	kexec_image_info(kimage);
 
-	pr_debug("%s:%d: control_code_page:        %p\n", __func__, __LINE__,
+	pr_emerg("%s:%d: control_code_page:        %p\n", __func__, __LINE__,
 		kimage->control_code_page);
-	pr_debug("%s:%d: reboot_code_buffer_phys:  %pa\n", __func__, __LINE__,
+	pr_emerg("%s:%d: reboot_code_buffer_phys:  %pa\n", __func__, __LINE__,
 		&reboot_code_buffer_phys);
-	pr_debug("%s:%d: reboot_code_buffer:       %p\n", __func__, __LINE__,
+	pr_emerg("%s:%d: reboot_code_buffer:       %p\n", __func__, __LINE__,
 		reboot_code_buffer);
-	pr_debug("%s:%d: relocate_new_kernel:      %p\n", __func__, __LINE__,
+	pr_emerg("%s:%d: relocate_new_kernel:      %p\n", __func__, __LINE__,
 		arm64_relocate_new_kernel);
-	pr_debug("%s:%d: relocate_new_kernel_size: 0x%lx(%lu) bytes\n",
+	pr_emerg("%s:%d: relocate_new_kernel_size: 0x%lx(%lu) bytes\n",
 		__func__, __LINE__, arm64_relocate_new_kernel_size,
 		arm64_relocate_new_kernel_size);
+
+	/*
+	 * We need to find the dtb before booting...
+	 */
+        for (i = 0; i < kimage->nr_segments; i++) {
+                void *ptr = phys_to_virt(kimage->segment[i].mem);
+
+                if (!ptr)
+                        continue;
+
+                pr_info("DTB check at %pa: magic=0x%08x\n", &kimage->segment[i].mem, be32_to_cpu(*(u32 *)ptr));
+
+                if (be32_to_cpu(*(u32 *)ptr) == 0xd00dfeed) {
+                        dtb_phys = kimage->segment[i].mem;
+                        pr_info("kexec: Found DTB at %pa (segment %lu, size 0x%lx)\n",
+                                &dtb_phys, i, kimage->segment[i].memsz);
+                        break;
+                }
+        }
+
+        if (!dtb_phys) {
+                pr_err("kexec: No DTB found! Boot will likely fail.\n");
+        }
 
 	/*
 	 * Copy arm64_relocate_new_kernel to the reboot_code_buffer for use
@@ -202,7 +229,8 @@ void machine_kexec(struct kimage *kimage)
 	if ((kimage != kexec_crash_image) && (kimage->head & IND_DONE))
 		kexec_segment_flush(kimage);
 
-	pr_info("Bye!\n");
+	pr_emerg("Bye! jumping to kernel @%lx with DTB @%pa\n",
+                kimage->start, &dtb_phys);
 
 	local_daif_mask();
 
@@ -215,7 +243,7 @@ void machine_kexec(struct kimage *kimage)
 	 * relocation is complete.
 	 */
 
-	cpu_soft_restart(reboot_code_buffer_phys, kimage->head, kimage->start, 0);
+	cpu_soft_restart(reboot_code_buffer_phys, kimage->head, kimage->start, dtb_phys);
 
 	BUG(); /* Should never get here. */
 }

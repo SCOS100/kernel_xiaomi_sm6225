@@ -35,7 +35,7 @@ ifeq ($(CONFIG_FB_MSM_MDSS_FRC_DEBUG),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug_frc.o
 endif
 
-mdss-dsi-objs := mdss_dsi.o mdss_dsi_host.o mdss_dsi_cmd.o mdss_dsi_status.o
+mdss-dsi-objs := mdss_dsi.o mdss_dsi_host.o mdss_dsi_cmd.o mdss_dsi_status.o drm_client.o
 mdss-dsi-objs += mdss_dsi_panel.o
 mdss-dsi-objs += msm_mdss_io_8974.o
 mdss-dsi-objs += mdss_dsi_phy.o
@@ -45,7 +45,7 @@ mdss-dsi-objs += mdss_dsi_clk.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss-dsi.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_panel.o
 
-ifneq ($(CONFIG_FB_MSM_MDSS_MDP3), y)
+ifeq ($(CONFIG_FB_MSM_MDSS_MDP3), y)
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_hdmi_util.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_hdmi_edid.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_cec_core.o
@@ -61,6 +61,8 @@ obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_audio.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_MHL_SII8334) += mhl_sii8334.o mhl_msc.o
 ccflags-y += -DTARGET_HW_MDSS_HDMI
 endif
+
+obj-$(CONFIG_FB_MSM_MDSS) += mdss_dba_utils.o
 
 obj-$(CONFIG_FB_MSM_MDSS_DP_PANEL) += mdss_dp.o mdss_dp_util.o
 obj-$(CONFIG_FB_MSM_MDSS_DP_PANEL) += mdss_dp_aux.o

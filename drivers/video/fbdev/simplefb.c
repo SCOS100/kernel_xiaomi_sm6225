@@ -33,6 +33,8 @@
 #include <linux/parser.h>
 #include <linux/regulator/consumer.h>
 
+#include <asm/pgtable.h> /* Out of tree mod for phys_to_virt  */
+
 static const struct fb_fix_screeninfo simplefb_fix = {
 	.id		= "simple",
 	.type		= FB_TYPE_PACKED_PIXELS,
@@ -466,8 +468,7 @@ static int simplefb_probe(struct platform_device *pdev)
 
 	info->fbops = &simplefb_ops;
 	info->flags = FBINFO_DEFAULT | FBINFO_MISC_FIRMWARE;
-	info->screen_base = ioremap_wc(info->fix.smem_start,
-				       info->fix.smem_len);
+	info->screen_base = phys_to_virt(info->fix.smem_start);
 	if (!info->screen_base) {
 		ret = -ENOMEM;
 		goto error_fb_release;

@@ -40,6 +40,9 @@
 #include <linux/pmic-voter.h>//"pmic-voter.h"
 //#include "step-chg-jeita.h"
 
+#undef pr_info
+#define pr_info(fmt, ...)  do {} while (0)
+
 #define	INVALID_REG_ADDR	0xFF
 #define   RET_ERR -1
 
@@ -724,7 +727,7 @@ static int fg_read_current(struct sm_fg_chip *sm)
 			
 	}
 	//pr_err("curr = %d,data=%d\n",(int)curr,data);
-	pr_err("curr = %d,data=%d\n",curr,data);
+	//pr_err("curr = %d,data=%d\n",curr,data);
 	//return (int)curr;
 	return curr;
 }

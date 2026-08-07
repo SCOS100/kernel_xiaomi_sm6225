@@ -1033,7 +1033,7 @@ static int ds28el16_Read_RomID_retry(unsigned char *RomID)
 	}
 
 	for (i = 0; i < GET_ROM_ID_RETRY; i++) {
-		ds_info("read rom id communication start %d...\n", i);
+		//ds_info("read rom id communication start %d...\n", i);
 		//if (DS28E16_cmd_readStatus(data) == DS_TRUE)                          //2022_4_22 Update
 			if (Read_RomID(RomID) == DS_TRUE) {
 				ds_log("getian---ds28el16_Read_RomID_retry00\n");

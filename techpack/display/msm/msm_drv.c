@@ -1203,6 +1203,38 @@ static void msm_lastclose(struct drm_device *dev)
 	flush_workqueue(priv->wq);
 
 	if (priv->fbdev) {
+		int i = 0;
+		/* Flush all display kthread workers before cleanup */
+		for (i = 0; i < priv->num_crtcs; i++) {
+			if (priv->disp_thread[i].thread)
+				kthread_flush_worker(&priv->disp_thread[i].worker);
+		}
+		/* Also flush event thread workers */
+		for (i = 0; i < priv->num_crtcs; i++) {
+			if (priv->event_thread[i].thread)
+				kthread_flush_worker(&priv->event_thread[i].worker);
+		}
+
+		/* MODIFICATION FOR FIX: DRMWORKAA
+		drm_modeset_acquire_init(&ctx, 0);
+retry_fbdev:
+		rc = drm_modeset_lock_all_ctx(dev, &ctx);
+		if (rc)
+			goto fail_fbdev;
+
+		rc = msm_disable_all_modes(dev, &ctx);
+		if (rc)
+			goto fail_fbdev;
+
+fail_fbdev:
+		if (rc == -EDEADLK) {
+			drm_modeset_backoff(&ctx);
+			goto retry_fbdev;
+		}
+		drm_modeset_drop_locks(&ctx);
+		drm_modeset_acquire_fini(&ctx);
+		*/
+
 		drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
 		return;
 	}

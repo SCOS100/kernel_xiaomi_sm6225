@@ -217,14 +217,22 @@ struct msm_dsi_phy_clk_request {
 
 void msm_dsi_phy_driver_register(void);
 void msm_dsi_phy_driver_unregister(void);
-int msm_dsi_phy_enable(struct msm_dsi_phy *phy, int src_pll_id,
-			struct msm_dsi_phy_clk_request *clk_req);
+int msm_dsi_phy_enable(struct msm_dsi_phy *phy,
+			struct msm_dsi_phy_clk_request *clk_req,
+			struct msm_dsi_phy_shared_timings *shared_timings);
 void msm_dsi_phy_disable(struct msm_dsi_phy *phy);
 void msm_dsi_phy_get_shared_timings(struct msm_dsi_phy *phy,
 			struct msm_dsi_phy_shared_timings *shared_timing);
 struct msm_dsi_pll *msm_dsi_phy_get_pll(struct msm_dsi_phy *phy);
 void msm_dsi_phy_set_usecase(struct msm_dsi_phy *phy,
 			     enum msm_dsi_phy_usecase uc);
+
+void msm_dsi_phy_set_usecase(struct msm_dsi_phy *phy, enum msm_dsi_phy_usecase uc);
+bool msm_dsi_phy_set_continuous_clock(struct msm_dsi_phy *phy, bool enable);
+int msm_dsi_phy_get_clk_provider(struct msm_dsi_phy *phy,
+		struct clk **byte_clk_provider, struct clk **pixel_clk_provider);
+void msm_dsi_phy_pll_save_state(struct msm_dsi_phy *phy);
+int msm_dsi_phy_pll_restore_state(struct msm_dsi_phy *phy);
 
 #endif /* __DSI_CONNECTOR_H__ */
 

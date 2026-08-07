@@ -21,6 +21,14 @@
 
 #include "targaddrs.h"
 
+enum ath10k_bus {
+	ATH10K_BUS_PCI,
+	ATH10K_BUS_AHB,
+	ATH10K_BUS_SDIO,
+	ATH10K_BUS_USB,
+	ATH10K_BUS_SNOC,
+};
+
 #define ATH10K_FW_DIR			"ath10k"
 
 #define QCA988X_2_0_DEVICE_ID_UBNT   (0x11ac)
@@ -109,6 +117,7 @@ enum qca9377_chip_id_rev {
 #define QCA9984_HW_1_0_CHIP_ID_REV	0x0
 #define QCA9984_HW_1_0_FW_DIR		ATH10K_FW_DIR "/QCA9984/hw1.0"
 #define QCA9984_HW_1_0_BOARD_DATA_FILE "board.bin"
+#define QCA9984_HW_1_0_EBOARD_DATA_FILE "eboard.bin"
 #define QCA9984_HW_1_0_PATCH_LOAD_ADDR	0x1234
 
 /* QCA9888 2.0 defines */
@@ -133,7 +142,6 @@ enum qca9377_chip_id_rev {
 /* WCN3990 1.0 definitions */
 #define WCN3990_HW_1_0_DEV_VERSION	ATH10K_HW_WCN3990
 #define WCN3990_HW_1_0_FW_DIR		ATH10K_FW_DIR "/WCN3990/hw1.0"
-#define WCN3990_HW_1_0_BOARD_DATA_FILE "board.bin"
 
 #define ATH10K_FW_FILE_BASE		"firmware"
 #define ATH10K_FW_API_MAX		6
@@ -222,6 +230,7 @@ enum ath10k_fw_htt_op_version {
 enum ath10k_bd_ie_type {
 	/* contains sub IEs of enum ath10k_bd_ie_board_type */
 	ATH10K_BD_IE_BOARD = 0,
+	ATH10K_BD_IE_BOARD_EXT = 1,
 };
 
 enum ath10k_bd_ie_board_type {
@@ -390,6 +399,11 @@ extern const struct ath10k_hw_ce_regs qcax_ce_regs;
 void ath10k_hw_fill_survey_time(struct ath10k *ar, struct survey_info *survey,
 				u32 cc, u32 rcc, u32 cc_prev, u32 rcc_prev);
 
+int ath10k_hw_diag_fast_download(struct ath10k *ar,
+				 u32 address,
+				 const void *buffer,
+				 u32 length);
+
 #define QCA_REV_988X(ar) ((ar)->hw_rev == ATH10K_HW_QCA988X)
 #define QCA_REV_9887(ar) ((ar)->hw_rev == ATH10K_HW_QCA9887)
 #define QCA_REV_6174(ar) ((ar)->hw_rev == ATH10K_HW_QCA6174)
@@ -502,6 +516,7 @@ struct ath10k_hw_clk_params {
 struct ath10k_hw_params {
 	u32 id;
 	u16 dev_id;
+	enum ath10k_bus bus;
 	const char *name;
 	u32 patch_load_addr;
 	int uart_pin;
@@ -540,6 +555,8 @@ struct ath10k_hw_params {
 		const char *dir;
 		const char *board;
 		size_t board_size;
+		const char *eboard;
+		size_t ext_board_size;
 		size_t board_ext_size;
 	} fw;
 
@@ -595,6 +612,9 @@ struct ath10k_hw_params {
 	 * to avoid it sending spurious acks.
 	 */
 	bool hw_filter_reset_required;
+
+	/* target supporting fw download via diag ce */
+	bool fw_diag_ce_download;
 };
 
 struct htt_rx_desc;
@@ -754,7 +774,7 @@ ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,
 
 #define TARGET_10_4_TX_DBG_LOG_SIZE		1024
 #define TARGET_10_4_NUM_WDS_ENTRIES		32
-#define TARGET_10_4_DMA_BURST_SIZE		1
+#define TARGET_10_4_DMA_BURST_SIZE		0
 #define TARGET_10_4_MAC_AGGR_DELIM		0
 #define TARGET_10_4_RX_SKIP_DEFRAG_TIMEOUT_DUP_DETECTION_CHECK 1
 #define TARGET_10_4_VOW_CONFIG			0
@@ -1129,5 +1149,16 @@ ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,
 #define RTC_SYNC_STATUS_PLL_CHANGING_LSB	5
 #define RTC_SYNC_STATUS_PLL_CHANGING_MASK	0x00000020
 /* qca6174 PLL offset/mask end */
+
+/* CPU_ADDR_MSB is a register, bit[3:0] is to specify which memory
+ * region is accessed. The memory region size is 1M.
+ * If host wants to access 0xX12345 at target, then CPU_ADDR_MSB[3:0]
+ * is 0xX.
+ * The following MACROs are defined to get the 0xX and the size limit.
+ */
+#define CPU_ADDR_MSB_REGION_MASK	GENMASK(23, 20)
+#define CPU_ADDR_MSB_REGION_VAL(X)	FIELD_GET(CPU_ADDR_MSB_REGION_MASK, X)
+#define REGION_ACCESS_SIZE_LIMIT	0x100000
+#define REGION_ACCESS_SIZE_MASK		(REGION_ACCESS_SIZE_LIMIT - 1)
 
 #endif /* _HW_H_ */

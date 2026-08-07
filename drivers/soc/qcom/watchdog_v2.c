@@ -255,6 +255,19 @@ static void wdog_disable(struct msm_watchdog_data *wdog_dd)
 	pr_info("MSM Apps Watchdog deactivated.\n");
 }
 
+void msm_wdog_disable_for_kexec(void)
+{
+        if (!wdog_data)
+                return;
+        /* Directly disable the watchdog hardware counter */
+        __raw_writel(0, wdog_data->base + WDT0_EN);
+        mb();
+        __raw_writel(0, wdog_data->base + WDT0_EN);
+        mb();
+        pr_emerg("kexec: watchdog hardware disabled\n");
+}
+EXPORT_SYMBOL(msm_wdog_disable_for_kexec);
+
 static ssize_t wdog_disable_get(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {

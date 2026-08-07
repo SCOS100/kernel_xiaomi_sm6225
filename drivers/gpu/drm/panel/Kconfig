@@ -186,4 +186,13 @@ config DRM_PANEL_SITRONIX_ST7789V
 	  Say Y here if you want to enable support for the Sitronix
 	  ST7789V controller for 240x320 LCD panels
 
+config DRM_PANEL_XIAOMI_K7
+        tristate "Xiaomi K7 OLED DSI video mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here for the 1080x2400 90Hz OLED DSI video mode panel
+          used in some Xiaomi devices (K7 38 0C 0A / 0B).
+
 endmenu

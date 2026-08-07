@@ -82,8 +82,12 @@ struct lpm_cluster *lpm_root_node;
 static bool lpm_prediction = true;
 module_param_named(lpm_prediction, lpm_prediction, bool, 0664);
 
-static bool lpm_ipi_prediction = true;
+bool lpm_ipi_prediction = true;
 module_param_named(lpm_ipi_prediction, lpm_ipi_prediction, bool, 0664);
+
+/* Allow other subsystems to disable LPM IPI prediction e.g. for kexec */
+bool *lpm_ipi_prediction_ptr = &lpm_ipi_prediction;
+EXPORT_SYMBOL(lpm_ipi_prediction_ptr);
 
 struct lpm_history {
 	uint32_t resi[MAXSAMPLES];

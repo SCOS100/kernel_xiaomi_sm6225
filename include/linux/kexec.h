@@ -295,6 +295,7 @@ struct kimage {
 	/* Virtual address of IMA measurement buffer for kexec syscall */
 	void *ima_buffer;
 #endif
+	phys_addr_t dtb_mem;
 };
 
 /* kexec interface functions */

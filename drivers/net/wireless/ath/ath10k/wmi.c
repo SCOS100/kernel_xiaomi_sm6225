@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1307,7 +1307,8 @@ static struct wmi_pdev_param_map wmi_10_2_4_pdev_param_map = {
 	.set_mcast2ucast_mode = WMI_PDEV_PARAM_UNSUPPORTED,
 	.set_mcast2ucast_buffer = WMI_PDEV_PARAM_UNSUPPORTED,
 	.remove_mcast2ucast_buffer = WMI_PDEV_PARAM_UNSUPPORTED,
-	.peer_sta_ps_statechg_enable = WMI_PDEV_PARAM_UNSUPPORTED,
+	.peer_sta_ps_statechg_enable =
+				WMI_10X_PDEV_PARAM_PEER_STA_PS_STATECHG_ENABLE,
 	.igmpmld_ac_override = WMI_PDEV_PARAM_UNSUPPORTED,
 	.block_interbss = WMI_PDEV_PARAM_UNSUPPORTED,
 	.set_disable_reset_cmdid = WMI_PDEV_PARAM_UNSUPPORTED,
@@ -1697,32 +1698,12 @@ void ath10k_wmi_put_wmi_channel(struct wmi_channel *ch,
 
 int ath10k_wmi_wait_for_service_ready(struct ath10k *ar)
 {
-	unsigned long time_left, i;
+	unsigned long time_left;
 
 	time_left = wait_for_completion_timeout(&ar->wmi.service_ready,
 						WMI_SERVICE_READY_TIMEOUT_HZ);
-	if (!time_left) {
-		/* Sometimes the PCI HIF doesn't receive interrupt
-		 * for the service ready message even if the buffer
-		 * was completed. PCIe sniffer shows that it's
-		 * because the corresponding CE ring doesn't fires
-		 * it. Workaround here by polling CE rings once.
-		 */
-		ath10k_warn(ar, "failed to receive service ready completion, polling..\n");
-
-		for (i = 0; i < CE_COUNT; i++)
-			ath10k_hif_send_complete_check(ar, i, 1);
-
-		time_left = wait_for_completion_timeout(&ar->wmi.service_ready,
-							WMI_SERVICE_READY_TIMEOUT_HZ);
-		if (!time_left) {
-			ath10k_warn(ar, "polling timed out\n");
-			return -ETIMEDOUT;
-		}
-
-		ath10k_warn(ar, "service ready completion received, continuing normally\n");
-	}
-
+	if (!time_left)
+		return -ETIMEDOUT;
 	return 0;
 }
 
@@ -2360,7 +2341,7 @@ static int wmi_process_mgmt_tx_comp(struct ath10k *ar, u32 desc_id,
 
 	msdu = pkt_addr->vaddr;
 	dma_unmap_single(ar->dev, pkt_addr->paddr,
-			 msdu->len, DMA_TO_DEVICE);
+			 msdu->len, DMA_FROM_DEVICE);
 	info = IEEE80211_SKB_CB(msdu);
 
 	if (status)
@@ -4570,13 +4551,16 @@ static void ath10k_tpc_config_disp_tables(struct ath10k *ar,
 	}
 
 	pream_idx = 0;
-	for (i = 0; i < tpc_stats->rate_max; i++) {
+	for (i = 0; i < __le32_to_cpu(ev->rate_max); i++) {
 		memset(tpc_value, 0, sizeof(tpc_value));
 		memset(buff, 0, sizeof(buff));
 		if (i == pream_table[pream_idx])
 			pream_idx++;
 
-		for (j = 0; j < tpc_stats->num_tx_chain; j++) {
+		for (j = 0; j < WMI_TPC_TX_N_CHAIN; j++) {
+			if (j >= __le32_to_cpu(ev->num_tx_chain))
+				break;
+
 			tpc[j] = ath10k_tpc_config_get_rate(ar, ev, i, j + 1,
 							    rate_code[i],
 							    type);
@@ -4689,7 +4673,7 @@ void ath10k_wmi_tpc_config_get_rate_code(u8 *rate_code, u16 *pream_table,
 
 void ath10k_wmi_event_pdev_tpc_config(struct ath10k *ar, struct sk_buff *skb)
 {
-	u32 num_tx_chain, rate_max;
+	u32 num_tx_chain;
 	u8 rate_code[WMI_TPC_RATE_MAX];
 	u16 pream_table[WMI_TPC_PREAM_TABLE_MAX];
 	struct wmi_pdev_tpc_config_event *ev;
@@ -4703,13 +4687,6 @@ void ath10k_wmi_event_pdev_tpc_config(struct ath10k *ar, struct sk_buff *skb)
 		ath10k_warn(ar, "number of tx chain is %d greater than TPC configured tx chain %d\n",
 			    num_tx_chain, WMI_TPC_TX_N_CHAIN);
 		return;
-	}
-
-	rate_max = __le32_to_cpu(ev->rate_max);
-	if (rate_max > WMI_TPC_RATE_MAX) {
-		ath10k_warn(ar, "number of rate is %d greater than TPC configured rate %d\n",
-			    rate_max, WMI_TPC_RATE_MAX);
-		rate_max = WMI_TPC_RATE_MAX;
 	}
 
 	tpc_stats = kzalloc(sizeof(*tpc_stats), GFP_ATOMIC);
@@ -4728,8 +4705,8 @@ void ath10k_wmi_event_pdev_tpc_config(struct ath10k *ar, struct sk_buff *skb)
 		__le32_to_cpu(ev->twice_antenna_reduction);
 	tpc_stats->power_limit = __le32_to_cpu(ev->power_limit);
 	tpc_stats->twice_max_rd_power = __le32_to_cpu(ev->twice_max_rd_power);
-	tpc_stats->num_tx_chain = num_tx_chain;
-	tpc_stats->rate_max = rate_max;
+	tpc_stats->num_tx_chain = __le32_to_cpu(ev->num_tx_chain);
+	tpc_stats->rate_max = __le32_to_cpu(ev->rate_max);
 
 	ath10k_tpc_config_disp_tables(ar, ev, tpc_stats,
 				      rate_code, pream_table,
@@ -4924,13 +4901,16 @@ ath10k_wmi_tpc_stats_final_disp_tables(struct ath10k *ar,
 	}
 
 	pream_idx = 0;
-	for (i = 0; i < tpc_stats->rate_max; i++) {
+	for (i = 0; i < __le32_to_cpu(ev->rate_max); i++) {
 		memset(tpc_value, 0, sizeof(tpc_value));
 		memset(buff, 0, sizeof(buff));
 		if (i == pream_table[pream_idx])
 			pream_idx++;
 
-		for (j = 0; j < tpc_stats->num_tx_chain; j++) {
+		for (j = 0; j < WMI_TPC_TX_N_CHAIN; j++) {
+			if (j >= __le32_to_cpu(ev->num_tx_chain))
+				break;
+
 			tpc[j] = ath10k_wmi_tpc_final_get_rate(ar, ev, i, j + 1,
 							       rate_code[i],
 							       type, pream_idx);
@@ -4946,7 +4926,7 @@ ath10k_wmi_tpc_stats_final_disp_tables(struct ath10k *ar,
 
 void ath10k_wmi_event_tpc_final_table(struct ath10k *ar, struct sk_buff *skb)
 {
-	u32 num_tx_chain, rate_max;
+	u32 num_tx_chain;
 	u8 rate_code[WMI_TPC_FINAL_RATE_MAX];
 	u16 pream_table[WMI_TPC_PREAM_TABLE_MAX];
 	struct wmi_pdev_tpc_final_table_event *ev;
@@ -4954,23 +4934,11 @@ void ath10k_wmi_event_tpc_final_table(struct ath10k *ar, struct sk_buff *skb)
 
 	ev = (struct wmi_pdev_tpc_final_table_event *)skb->data;
 
-	num_tx_chain = __le32_to_cpu(ev->num_tx_chain);
-	if (num_tx_chain > WMI_TPC_TX_N_CHAIN) {
-		ath10k_warn(ar, "number of tx chain is %d greater than TPC final configured tx chain %d\n",
-			    num_tx_chain, WMI_TPC_TX_N_CHAIN);
-		return;
-	}
-
-	rate_max = __le32_to_cpu(ev->rate_max);
-	if (rate_max > WMI_TPC_FINAL_RATE_MAX) {
-		ath10k_warn(ar, "number of rate is %d greater than TPC final configured rate %d\n",
-			    rate_max, WMI_TPC_FINAL_RATE_MAX);
-		rate_max = WMI_TPC_FINAL_RATE_MAX;
-	}
-
 	tpc_stats = kzalloc(sizeof(*tpc_stats), GFP_ATOMIC);
 	if (!tpc_stats)
 		return;
+
+	num_tx_chain = __le32_to_cpu(ev->num_tx_chain);
 
 	ath10k_wmi_tpc_config_get_rate_code(rate_code, pream_table,
 					    num_tx_chain);
@@ -4984,8 +4952,8 @@ void ath10k_wmi_event_tpc_final_table(struct ath10k *ar, struct sk_buff *skb)
 		__le32_to_cpu(ev->twice_antenna_reduction);
 	tpc_stats->power_limit = __le32_to_cpu(ev->power_limit);
 	tpc_stats->twice_max_rd_power = __le32_to_cpu(ev->twice_max_rd_power);
-	tpc_stats->num_tx_chain = num_tx_chain;
-	tpc_stats->rate_max = rate_max;
+	tpc_stats->num_tx_chain = __le32_to_cpu(ev->num_tx_chain);
+	tpc_stats->rate_max = __le32_to_cpu(ev->rate_max);
 
 	ath10k_wmi_tpc_stats_final_disp_tables(ar, ev, tpc_stats,
 					       rate_code, pream_table,
@@ -5079,6 +5047,36 @@ ath10k_wmi_handle_tdls_peer_event(struct ath10k *ar, struct sk_buff *skb)
 			   peer_status);
 		break;
 	}
+}
+
+static void
+ath10k_wmi_event_peer_sta_ps_state_chg(struct ath10k *ar, struct sk_buff *skb)
+{
+	struct wmi_peer_sta_ps_state_chg_event *ev;
+	struct ieee80211_sta *sta;
+	struct ath10k_sta *arsta;
+	u8 peer_addr[ETH_ALEN];
+
+	lockdep_assert_held(&ar->data_lock);
+
+	ev = (struct wmi_peer_sta_ps_state_chg_event *)skb->data;
+	ether_addr_copy(peer_addr, ev->peer_macaddr.addr);
+
+	rcu_read_lock();
+
+	sta = ieee80211_find_sta_by_ifaddr(ar->hw, peer_addr, NULL);
+
+	if (!sta) {
+		ath10k_warn(ar, "failed to find station entry %pM\n",
+			    peer_addr);
+		goto exit;
+	}
+
+	arsta = (struct ath10k_sta *)sta->drv_priv;
+	arsta->peer_ps_state = __le32_to_cpu(ev->peer_ps_state);
+
+exit:
+	rcu_read_unlock();
 }
 
 void ath10k_wmi_event_pdev_ftm_intg(struct ath10k *ar, struct sk_buff *skb)
@@ -5514,7 +5512,8 @@ int ath10k_wmi_event_ready(struct ath10k *ar, struct sk_buff *skb)
 		   arg.mac_addr,
 		   __le32_to_cpu(arg.status));
 
-	ether_addr_copy(ar->mac_addr, arg.mac_addr);
+	if (is_zero_ether_addr(ar->mac_addr))
+		ether_addr_copy(ar->mac_addr, arg.mac_addr);
 	complete(&ar->wmi.unified_ready);
 	return 0;
 }
@@ -5530,13 +5529,8 @@ void ath10k_wmi_event_service_available(struct ath10k *ar, struct sk_buff *skb)
 			    ret);
 	}
 
-	/*
-	 * Initialization of "arg.service_map_ext_valid" to ZERO is necessary
-	 * for the below logic to work.
-	 */
-	if (arg.service_map_ext_valid)
-		ath10k_wmi_map_svc_ext(ar, arg.service_map_ext, ar->wmi.svc_map,
-				       __le32_to_cpu(arg.service_map_ext_len));
+	ath10k_wmi_map_svc_ext(ar, arg.service_map_ext, ar->wmi.svc_map,
+			       __le32_to_cpu(arg.service_map_ext_len));
 }
 
 static int ath10k_wmi_event_temperature(struct ath10k *ar, struct sk_buff *skb)
@@ -6015,6 +6009,9 @@ static void ath10k_wmi_10_2_op_rx(struct ath10k *ar, struct sk_buff *skb)
 		ath10k_dbg(ar, ATH10K_DBG_WMI,
 			   "received event id %d not implemented\n", id);
 		break;
+	case WMI_10_2_PEER_STA_PS_STATECHG_EVENTID:
+		ath10k_wmi_event_peer_sta_ps_state_chg(ar, skb);
+		break;
 	default:
 		ath10k_warn(ar, "Unknown eventid: %d\n", id);
 		break;
@@ -6131,6 +6128,9 @@ static void ath10k_wmi_10_4_op_rx(struct ath10k *ar, struct sk_buff *skb)
 		break;
 	case WMI_10_4_DFS_STATUS_CHECK_EVENTID:
 		ath10k_wmi_event_dfs_status_check(ar, skb);
+		break;
+	case WMI_10_4_PEER_STA_PS_STATECHG_EVENTID:
+		ath10k_wmi_event_peer_sta_ps_state_chg(ar, skb);
 		break;
 	default:
 		ath10k_warn(ar, "Unknown eventid: %d\n", id);
@@ -9231,7 +9231,7 @@ static int ath10k_wmi_mgmt_tx_clean_up_pending(int msdu_id, void *ptr,
 
 	msdu = pkt_addr->vaddr;
 	dma_unmap_single(ar->dev, pkt_addr->paddr,
-			 msdu->len, DMA_TO_DEVICE);
+			 msdu->len, DMA_FROM_DEVICE);
 	ieee80211_free_txskb(ar->hw, msdu);
 
 	return 0;

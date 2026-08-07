@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Qualcomm Technologies, Inc. KHaje MDSS/MDP5 DTSI for upstream kernel
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,gcc-khaje.h>
+#include <dt-bindings/clock/qcom,dispcc-khaje.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&soc {
+	mdss: mdss@5e00000 {
+		compatible = "qcom,mdss";
+		reg = <0x5e00000 0x1000>,
+		      <0x5eb0000 0x3000>;
+		reg-names = "mdss_phys", "vbif_phys";
+
+		power-domains = <&mdss_core_gdsc>;
+
+		clocks = <&gcc GCC_DISP_AHB_CLK>,
+			 <&gcc GCC_DISP_HF_AXI_CLK>,
+			 <&dispcc DISP_CC_MDSS_VSYNC_CLK>;
+		clock-names = "iface", "bus", "vsync";
+
+		interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		iommus = <&apps_smmu 0x420 0x2>;
+		#interrupt-cells = <1>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		smmu_sde_unsec: qcom,smmu_sde_unsec_cb {
+			compatible = "qcom,smmu_sde_unsec";
+			iommus = <&apps_smmu 0x420 0x2>;
+			qcom,iommu-dma-addr-pool = <0x00020000 0xfffe0000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-earlymap; /* for cont-splash */
+		};
+
+		smmu_sde_sec: qcom,smmu_sde_sec_cb {
+			compatible = "qcom,smmu_sde_sec";
+			iommus = <&apps_smmu 0x421 0x0>;
+			qcom,iommu-dma-addr-pool = <0x00020000 0xfffe0000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0xa>;
+		};
+
+		mdp: mdp@5e01000 {
+			compatible = "qcom,mdp5";
+			reg = <0x5e01000 0x8f000>;
+			reg-names = "mdp_phys";
+
+			interrupt-parent = <&mdss>;
+			interrupts = <0>;
+
+			clocks = <&gcc GCC_DISP_AHB_CLK>,
+				 <&gcc GCC_DISP_HF_AXI_CLK>,
+				 <&dispcc DISP_CC_MDSS_MDP_CLK>,
+				 <&dispcc DISP_CC_MDSS_VSYNC_CLK>;
+			clock-names = "iface", "bus", "core", "vsync";
+
+			/* MDP5 output port to DSI */
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					mdp5_intf1_out: endpoint {
+						remote-endpoint = <&dsi0_in>;
+					};
+				};
+			};
+		};
+
+		dsi0: dsi@5e94000 {
+			compatible = "qcom,mdss-dsi-ctrl";
+			reg = <0x5e94000 0x400>;
+			reg-names = "dsi_ctrl";
+
+			interrupt-parent = <&mdss>;
+			interrupts = <4>;
+
+			vdda-supply = <&L18A>;
+
+			clocks = <&dispcc DISP_CC_MDSS_BYTE0_CLK>,
+				 <&dispcc DISP_CC_MDSS_BYTE0_INTF_CLK>,
+				 <&dispcc DISP_CC_MDSS_PCLK0_CLK>,
+				 <&dispcc DISP_CC_MDSS_ESC0_CLK>;
+			clock-names = "byte", "byte_intf", "pixel", "core";
+
+			phys = <&dsi_phy0>;
+			phy-names = "dsi-phy";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Panel alias for bootloader selection */
+			status = "okay";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					dsi0_in: endpoint {
+						remote-endpoint = <&mdp5_intf1_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					dsi0_out: endpoint {
+						/* Connected to panel via overlay */
+					};
+				};
+			};
+		};
+
+		dsi_phy0: dsi-phy@5e94400 {
+			compatible = "qcom,dsi-phy-7nm";
+			reg = <0x5e94400 0x800>,
+			      <0x5e94200 0x100>;
+			reg-names = "dsi_phy", "dsi_pll";
+
+			vcca-supply = <&L4A>;
+
+			clocks = <&dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>;
+			clock-names = "ref";
+
+			#clock-cells = <1>;
+		};
+	};
+};
+
+/* Default aliases for panel selection */
+/ {
+	aliases {
+		dsi_panel_k7_38_0c_0a_video = &panel_k7_38_0c_0a;
+		dsi_panel_k7_38_0c_0b_video = &panel_k7_38_0c_0b;
+/*		dsi_panel_td4330_truly_v2_video = &panel_td4330_truly;
+		dsi_panel_td4330_truly_v2_cmd = &panel_td4330_truly_cmd;
+		dsi_panel_nt36672e_fhd_plus_90hz_video = &panel_nt36672e; */
+	};
+};

@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "sm6225-xiaomi-spes.dtsi"
+
+/ {
+	model = "Redmi Note 11 (SPES KHAJE IDP nopmi)";
+	compatible = "qcom,khaje-idp", "qcom,khaje", "qcom,idp";
+	qcom,msm-id = <518 0x10000>;
+	qcom,board-id = <0x20022 0>;
+	qcom,pmic-id = <0x2D 0x0 0x0 0x0>;
+};

@@ -1,5 +1,14 @@
 menu "Platform selection"
 
+config ARCH_BYPASS_VENDOR
+	bool "Don't build vendor dtb/dtbo build"
+	help
+	  This enables the build system to not build the vendor dtb/dtb normally
+	  present inside arch/arm64/boot/dts/vendor/. This will instead autobuild
+	  the normal dtb present inside of arch/arm64/boot/dts/.
+
+	  If unsure, choose N.
+
 config ARCH_ACTIONS
 	bool "Actions Semi Platforms"
 	select OWL_TIMER

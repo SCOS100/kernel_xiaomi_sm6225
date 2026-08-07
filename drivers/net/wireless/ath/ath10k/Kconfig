@@ -42,11 +42,24 @@ config ATH10K_USB
 
 config ATH10K_SNOC
 	tristate "Qualcomm ath10k SNOC support (EXPERIMENTAL)"
-	depends on ATH10K && ARCH_QCOM
+	depends on ATH10K
+	depends on ARCH_QCOM || COMPILE_TEST
+	select QCOM_QMI_HELPERS
 	---help---
 	  This module adds support for integrated WCN3990 chip connected
 	  to system NOC(SNOC). Currently work in progress and will not
 	  fully work.
+
+config ATH10K_SNOC_VOLTAGE_OVERRIDE
+	int "Qualcomm ath10k SNOC vdd-0.8-cx-mx voltage override"
+	default 640000
+	depends on ATH10K_SNOC
+	---help---
+	  In the case that the vdd-0.8-cx-mx can't do 800000mV, you can set
+	  a custom value in microvolts here.
+
+	  If you don't know what you're doing and are just building Linux
+	  for spes/n, then leave this at the default value.
 
 config ATH10K_DEBUG
 	bool "Atheros ath10k debugging"

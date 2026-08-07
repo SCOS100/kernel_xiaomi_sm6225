@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Qualcomm Technologies, Inc. KHaje SM6225 Device Tree for upstream display
+ */
+
+#include "extra/khaje-mdss.dtsi"
+#include "extra/panel-k7-38-0c-0a.dtsi"
+#include "extra/panel-k7-38-0c-0b.dtsi"
+//#include "panel-td4330-truly-video.dtsi"
+//#include "panel-td4330-truly-cmd.dtsi"
+//#include "panel-nt36672e-90hz.dtsi"
+
+
+/* Backlight node */
+&soc {
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		power-supply = <&L9A>;
+		pwms = <&pm6125_pwm 0 1000000>;
+		brightness-levels = <0 100 200 300 400 500 600 700 800 900 1000>;
+		num-interpolated-steps = <100>;
+		default-brightness-level = <500>;
+	};
+};
+
+/* PM6125 GPIO for panel enable */
+&pm6125_gpios {
+	gpio9_panel_en: gpio9-panel-en {
+		pins = "gpio9";
+		function = "normal";
+		output-low;
+		bias-disable;
+		power-source = <1>;
+	};
+};
+
+/* TLMM pin configuration */
+&tlmm {
+	/* DSI reset pin */
+	dsi_reset_pin: dsi-reset-pin {
+		pins = "gpio82";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
+		output-high;
+	};
+
+	/* TE (Tearing Effect) pin */
+	dsi_te_pin: dsi-te-pin {
+		pins = "gpio81";
+		function = "mdp_vsync";
+		drive-strength = <2>;
+		bias-pull-down;
+		input-enable;
+	};
+
+	/* ESD error IRQ pin */
+	dsi_esd_irq_pin: dsi-esd-irq-pin {
+		pins = "gpio99";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
+};
+
+/* Connect DSI to the panel (default connection for boot) */
+&dsi0 {
+	status = "okay";
+	
+	/* Connect the DSI output to the default panel (panel 0a) endpoint */
+	ports {
+		port@1 {
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel_k7_38_0c_0a_in>;
+			};
+		};
+	};
+};

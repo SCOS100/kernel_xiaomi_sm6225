@@ -25,6 +25,7 @@
 #include "msm_fence.h"
 #include "msm_gpu.h"
 #include "msm_kms.h"
+#include "msm_mmu.h"
 
 
 /*
@@ -1233,7 +1234,7 @@ static int add_components_mdp(struct device *mdp_dev,
 
 static int compare_name_mdp(struct device *dev, void *data)
 {
-	return (strnstr(dev_name(dev), "mdp") != NULL);
+	return (strnstr(dev_name(dev), "mdp", strlen(dev_name(dev))) != NULL);
 }
 
 static int add_display_components(struct device *dev,
@@ -1421,6 +1422,7 @@ static int __init msm_drm_register(void)
 		return -EINVAL;
 
 	DBG("init");
+	msm_smmu_driver_init();
 	msm_mdp_register();
 	msm_dpu_register();
 	msm_dsi_register();
@@ -1440,6 +1442,7 @@ static void __exit msm_drm_unregister(void)
 	msm_dsi_unregister();
 	msm_mdp_unregister();
 	msm_dpu_unregister();
+	msm_smmu_driver_cleanup();
 }
 
 module_init(msm_drm_register);

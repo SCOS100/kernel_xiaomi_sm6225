@@ -500,8 +500,14 @@ static int _ath10k_ce_send_nolock(struct ath10k_ce_pipe *ce_state,
 	write_index = CE_RING_IDX_INCR(nentries_mask, write_index);
 
 	/* WORKAROUND */
-	if (!(flags & CE_SEND_FLAG_GATHER))
-		ath10k_ce_src_ring_write_index_set(ar, ctrl_addr, write_index);
+	if (!(flags & CE_SEND_FLAG_GATHER)) {
+		if (ar->hw_params.shadow_reg_support)
+			ath10k_ce_shadow_src_ring_write_index_set(ar, ce_state,
+								  write_index);
+		else
+			ath10k_ce_src_ring_write_index_set(ar, ctrl_addr,
+							   write_index);
+	}
 
 	src_ring->write_index = write_index;
 exit:
@@ -575,14 +581,8 @@ static int _ath10k_ce_send_nolock_64(struct ath10k_ce_pipe *ce_state,
 	/* Update Source Ring Write Index */
 	write_index = CE_RING_IDX_INCR(nentries_mask, write_index);
 
-	if (!(flags & CE_SEND_FLAG_GATHER)) {
-		if (ar->hw_params.shadow_reg_support)
-			ath10k_ce_shadow_src_ring_write_index_set(ar, ce_state,
-								  write_index);
-		else
-			ath10k_ce_src_ring_write_index_set(ar, ctrl_addr,
-							   write_index);
-	}
+	if (!(flags & CE_SEND_FLAG_GATHER))
+		ath10k_ce_src_ring_write_index_set(ar, ctrl_addr, write_index);
 
 	src_ring->write_index = write_index;
 exit:
@@ -1280,10 +1280,17 @@ static void ath10k_ce_per_engine_handler_adjust(struct ath10k_ce_pipe *ce_state)
 
 int ath10k_ce_disable_interrupts(struct ath10k *ar)
 {
+	struct ath10k_ce *ce = ath10k_ce_priv(ar);
+	struct ath10k_ce_pipe *ce_state;
+	u32 ctrl_addr;
 	int ce_id;
 
 	for (ce_id = 0; ce_id < CE_COUNT; ce_id++) {
-		u32 ctrl_addr = ath10k_ce_base_address(ar, ce_id);
+		ce_state  = &ce->ce_states[ce_id];
+		if (ce_state->attr_flags & CE_ATTR_POLL)
+			continue;
+
+		ctrl_addr = ath10k_ce_base_address(ar, ce_id);
 
 		ath10k_ce_copy_complete_intr_disable(ar, ctrl_addr);
 		ath10k_ce_error_intr_disable(ar, ctrl_addr);
@@ -1300,11 +1307,14 @@ void ath10k_ce_enable_interrupts(struct ath10k *ar)
 	int ce_id;
 	struct ath10k_ce_pipe *ce_state;
 
-	/* Skip the last copy engine, CE7 the diagnostic window, as that
-	 * uses polling and isn't initialized for interrupts.
+	/* Enable interrupts for copy engine that
+	 * are not using polling mode.
 	 */
-	for (ce_id = 0; ce_id < CE_COUNT - 1; ce_id++) {
+	for (ce_id = 0; ce_id < CE_COUNT; ce_id++) {
 		ce_state  = &ce->ce_states[ce_id];
+		if (ce_state->attr_flags & CE_ATTR_POLL)
+			continue;
+
 		ath10k_ce_per_engine_handler_adjust(ce_state);
 	}
 }
@@ -1394,12 +1404,12 @@ static int ath10k_ce_alloc_shadow_base(struct ath10k *ar,
 				       u32 nentries)
 {
 	src_ring->shadow_base_unaligned = kcalloc(nentries,
-						  sizeof(struct ce_desc_64),
+						  sizeof(struct ce_desc),
 						  GFP_KERNEL);
 	if (!src_ring->shadow_base_unaligned)
 		return -ENOMEM;
 
-	src_ring->shadow_base = (struct ce_desc_64 *)
+	src_ring->shadow_base = (struct ce_desc *)
 			PTR_ALIGN(src_ring->shadow_base_unaligned,
 				  CE_DESC_RING_ALIGN);
 	return 0;
@@ -1416,10 +1426,8 @@ ath10k_ce_alloc_src_ring(struct ath10k *ar, unsigned int ce_id,
 
 	nentries = roundup_pow_of_two(nentries);
 
-	src_ring = kzalloc(sizeof(*src_ring) +
-			   (nentries *
-			    sizeof(*src_ring->per_transfer_context)),
-			   GFP_KERNEL);
+	src_ring = kzalloc(struct_size(src_ring, per_transfer_context,
+				       nentries), GFP_KERNEL);
 	if (src_ring == NULL)
 		return ERR_PTR(-ENOMEM);
 
@@ -1476,10 +1484,8 @@ ath10k_ce_alloc_src_ring_64(struct ath10k *ar, unsigned int ce_id,
 
 	nentries = roundup_pow_of_two(nentries);
 
-	src_ring = kzalloc(sizeof(*src_ring) +
-			   (nentries *
-			    sizeof(*src_ring->per_transfer_context)),
-			   GFP_KERNEL);
+	src_ring = kzalloc(struct_size(src_ring, per_transfer_context,
+				       nentries), GFP_KERNEL);
 	if (!src_ring)
 		return ERR_PTR(-ENOMEM);
 
@@ -1534,10 +1540,8 @@ ath10k_ce_alloc_dest_ring(struct ath10k *ar, unsigned int ce_id,
 
 	nentries = roundup_pow_of_two(attr->dest_nentries);
 
-	dest_ring = kzalloc(sizeof(*dest_ring) +
-			    (nentries *
-			     sizeof(*dest_ring->per_transfer_context)),
-			    GFP_KERNEL);
+	dest_ring = kzalloc(struct_size(dest_ring, per_transfer_context,
+					nentries), GFP_KERNEL);
 	if (dest_ring == NULL)
 		return ERR_PTR(-ENOMEM);
 
@@ -1580,10 +1584,8 @@ ath10k_ce_alloc_dest_ring_64(struct ath10k *ar, unsigned int ce_id,
 
 	nentries = roundup_pow_of_two(attr->dest_nentries);
 
-	dest_ring = kzalloc(sizeof(*dest_ring) +
-			    (nentries *
-			     sizeof(*dest_ring->per_transfer_context)),
-			    GFP_KERNEL);
+	dest_ring = kzalloc(struct_size(dest_ring, per_transfer_context,
+					nentries), GFP_KERNEL);
 	if (!dest_ring)
 		return ERR_PTR(-ENOMEM);
 

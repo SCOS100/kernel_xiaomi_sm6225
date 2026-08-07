@@ -112,6 +112,17 @@ static const struct adreno_info gpulist[] = {
 		.init = a5xx_gpu_init,
 		.zapfw = "a530_zap.mdt",
 	}, {
+		.rev   = ADRENO_REV(6, 1, 0, ANY_ID),
+		.revn  = 610,
+		.name  = "A610",
+		.fw = {
+			[ADRENO_FW_SQE] = "a630_sqe.fw",
+			[ADRENO_FW_GMU] = "a630_gmu.bin",   // likely correct
+		},
+		.gmem  = (SZ_128K + SZ_4K),  // from KGSL
+		.init  = a6xx_gpu_init,
+		.zapfw = "a610_zap.mdt",     // IMPORTANT
+	}, {
 		.rev = ADRENO_REV(6, 3, 0, ANY_ID),
 		.revn = 630,
 		.name = "A630",
@@ -137,6 +148,10 @@ MODULE_FIRMWARE("qcom/a530_zap.mdt");
 MODULE_FIRMWARE("qcom/a530_zap.b00");
 MODULE_FIRMWARE("qcom/a530_zap.b01");
 MODULE_FIRMWARE("qcom/a530_zap.b02");
+MODULE_FIRMWARE("qcom/a610_zap.mdt");
+MODULE_FIRMWARE("qcom/a610_zap.b00");
+MODULE_FIRMWARE("qcom/a610_zap.b01");
+MODULE_FIRMWARE("qcom/a610_zap.b02");
 MODULE_FIRMWARE("qcom/a630_sqe.fw");
 MODULE_FIRMWARE("qcom/a630_gmu.bin");
 

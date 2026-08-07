@@ -1,0 +1,4 @@
+/dts-v1/;
+
+#include "khaje.dtsi"
+#include "khaje-idp-nopmi.dtsi"

@@ -30,6 +30,7 @@
  * during the copy operation.
  */
 ENTRY(arm64_relocate_new_kernel)
+	mov x19, x2
 
 	/* Setup the list loop variables. */
 	mov	x17, x1				/* x17 = kimage_start */
@@ -107,7 +108,7 @@ ENTRY(arm64_relocate_new_kernel)
 	isb
 
 	/* Start new image. */
-	mov	x0, xzr
+	mov	x0, x19
 	mov	x1, xzr
 	mov	x2, xzr
 	mov	x3, xzr
