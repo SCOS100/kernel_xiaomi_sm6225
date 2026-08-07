@@ -1,0 +1,29 @@
+name: Build and Publish Droidian Kernel
+
+on:
+  push:
+    branches: [ droidian ]
+  pull_request:
+    branches: [ droidian ]
+  workflow_dispatch:
+    branches: [ droidian ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Run build script
+      run: ./build_droidian.sh
+    
+    - name: List generated files
+      run: ls -la out/
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: droidian-deb-packages
+        path: out/*.deb

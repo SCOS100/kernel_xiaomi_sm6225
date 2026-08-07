@@ -90,6 +90,7 @@ AnyKernel3
 # git files that we don't want to ignore even if they are dot-files
 #
 !.gitignore
+!.github
 !.mailmap
 !.cocciconfig
 !.clang-format
