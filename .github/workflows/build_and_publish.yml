@@ -7,10 +7,13 @@ on:
     branches: [ droidian ]
   workflow_dispatch:
     branches: [ droidian ]
+  schedule:
+    branches: [ droidian ]
+    - cron: "59 23 * * *"
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04-arm64
     
     steps:
     - name: Checkout repository
@@ -23,7 +26,8 @@ jobs:
       run: ls -la out/
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: droidian-deb-packages
         path: out/*.deb
+        retention-days: 1
