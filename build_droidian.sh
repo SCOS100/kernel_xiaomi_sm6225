@@ -18,10 +18,7 @@ echo "CLEAN out"
 rm -f ./out/*.deb ./out/*.build* ./out/*.changes
 
 echo "START build"
-docker run --dns 1.1.1.1 --rm \
-	-v ./out:/buildd \
-	-v .:/buildd/sources \
-	-it quay.io/droidian/build-essential:next-amd64 \
-	bash -c "apt install linux-packaging-snippets; cd buildd/sources; rm -f debian/control; debian/rules debian/control; RELENG_HOST_ARCH=\"arm64\" releng-build-package"
+CONTAINER_HASH=$(docker run --detach --privileged --cgroupns=host -v ./out:/buildd/out -v /dev:/host-dev -v /sys/fs/cgroup:/sys/fs/cgroup -v ${PWD}:/buildd/sources --security-opt seccomp:unconfined quay.io/droidian/rootfs-builder:next-arm64 sleep infinity)
+docker exec $CONTAINER_HASH bash -c "apt install linux-packaging-snippets; cd buildd/sources; rm -f debian/control; debian/rules debian/control; RELENG_HOST_ARCH=\"arm64\" releng-build-package"
 
 echo "END build"
