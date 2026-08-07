@@ -16,9 +16,13 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: droidian
+        path: "kernel"
+
+    - name: List directory
+      run: ls -la
     
     - name: Run build script
-      run: ./build_droidian.sh
+      run: kernel/build_droidian.sh
     
     - name: List generated files
       run: ls -la out/
