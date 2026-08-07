@@ -6,9 +6,7 @@ on:
   pull_request:
     branches: [ droidian ]
   workflow_dispatch:
-    branches: [ droidian ]
   schedule:
-    branches: [ droidian ]
     - cron: "59 23 * * *"
 
 jobs:
@@ -18,6 +16,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        ref: droidian
     
     - name: Run build script
       run: ./build_droidian.sh
