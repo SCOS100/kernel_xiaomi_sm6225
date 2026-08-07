@@ -3,15 +3,13 @@ name: Build and Publish Droidian Kernel
 on:
   workflow_dispatch:
   push:
-    branches: [ droidian ]
-  pull_request:
-    branches: [ droidian ]
   schedule:
     - cron: "59 23 * * *"
 
 jobs:
   build:
     runs-on: ubuntu-24.04-arm64
+    name: "Kernel Build and Upload"
     
     steps:
     - name: Checkout repository
